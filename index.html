@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#B30000">
+<title>Airtel Zambia — ODU Collector</title>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode/html5-qrcode.min.js"></script>
+
+<style>
+:root{
+  /* Red Palette — 5 distinct shades */
+  --red-50:#fef2f2;
+  --red-100:#fee2e2;
+  --red-200:#fecaca;
+  --red-400:#f87171;
+  --red-500:#E40000;
+  --red-600:#B30000;
+  --red-700:#8B0000;
+  --red-800:#6B0000;
+  --red-900:#450000;
+
+  --airtel-red:var(--red-500);
+  --airtel-red-dark:var(--red-600);
+  --airtel-black:#1a0a0a;
+  --airtel-gray:#7a6565;
+  --bg:#faf5f5;
+  --card:#ffffff;
+  --border:#f0dada;
+  --green:#16a34a;
+  --green-light:#dcfce7;
+  --green-dark:#166534;
+  --amber:#d97706;
+  --amber-light:#fef9ee;
+  --amber-dark:#92400e;
+  --shadow:0 1px 3px rgba(139,0,0,.06),0 1px 2px rgba(139,0,0,.04);
+  --shadow-lg:0 10px 30px rgba(139,0,0,.1);
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',-apple-system,Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--airtel-black);font-size:14px;padding-bottom:60px}
+button{cursor:pointer;border:none;font-family:inherit}
+input,select{font-family:inherit;font-size:14px}
+
+/* ---------- Auth ---------- */
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,var(--red-500) 0%,var(--red-700) 50%,var(--red-900) 100%)}
+.auth-card{background:#fff;border-radius:18px;box-shadow:var(--shadow-lg);width:100%;max-width:430px;overflow:hidden;border-top:4px solid var(--red-400)}
+.auth-head{padding:30px 30px 10px;text-align:center}
+.auth-head .logo{display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+.auth-head .logo img{height:40px;width:auto}
+.auth-head h1{font-size:20px;font-weight:700;color:var(--red-700)}
+.auth-head p{color:var(--airtel-gray);font-size:13px;margin-top:4px}
+.auth-body{padding:20px 30px 30px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:600;color:#5c2020;margin-bottom:6px}
+.field input,.field select{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;outline:none;transition:.15s;background:#fff}
+.field input:focus,.field select:focus{border-color:var(--red-500);box-shadow:0 0 0 3px rgba(228,0,0,.1)}
+.btn-primary{width:100%;background:var(--red-500);color:#fff;padding:13px;border-radius:10px;font-weight:600;font-size:15px;transition:.15s}
+.btn-primary:hover{background:var(--red-600)}
+.auth-switch{text-align:center;margin-top:16px;font-size:13px;color:var(--airtel-gray)}
+.auth-switch a{color:var(--red-600);font-weight:600;cursor:pointer}
+.auth-error{background:var(--red-100);color:var(--red-800);padding:9px 12px;border-radius:8px;font-size:12px;margin-bottom:12px;display:none;border-left:3px solid var(--red-500)}
+
+/* ---------- Shell ---------- */
+.app{display:none;min-height:100vh}.app.active{display:block}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:240px;background:linear-gradient(180deg,var(--red-900) 0%,var(--red-800) 100%);color:#fff;padding:18px 0;z-index:50;display:flex;flex-direction:column}
+.sidebar .brand{display:flex;align-items:center;justify-content:center;padding:0 20px 20px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sidebar .brand img{height:32px;width:auto}
+.nav-item{display:flex;align-items:center;gap:12px;padding:14px 20px;color:rgba(255,255,255,.6);font-size:14px;cursor:pointer;transition:.15s;border-left:3px solid transparent}
+.nav-item:hover{background:rgba(255,255,255,.08);color:rgba(255,255,255,.9)}
+.nav-item.active{background:rgba(255,255,255,.12);color:#fff;border-left-color:var(--red-400)}
+.nav-item .icon{width:20px;text-align:center;font-size:16px}
+.nav-section{padding:16px 20px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.3);font-weight:700}
+.mobile-nav{position:fixed;bottom:0;left:0;right:0;background:linear-gradient(180deg,var(--red-800),var(--red-900));display:none;justify-content:space-around;padding:8px 0;z-index:50;box-shadow:0 -2px 10px rgba(0,0,0,.15)}
+.mobile-nav .m-nav-item{display:flex;flex-direction:column;align-items:center;gap:2px;color:rgba(255,255,255,.5);font-size:10px;font-weight:600;padding:6px 12px;border-radius:8px}
+.mobile-nav .m-nav-item.active{color:var(--red-300)}
+.mobile-nav .m-nav-item .icon{font-size:20px}
+.main{margin-left:240px;min-height:100vh}
+.topbar{background:#fff;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--shadow);position:sticky;top:0;z-index:20;border-bottom:2px solid var(--red-100)}
+.topbar .page-title{font-size:18px;font-weight:700;color:var(--red-700)}
+.topbar .user-chip{display:flex;align-items:center;gap:10px}
+.user-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--red-500),var(--red-700));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px}
+.user-meta{font-size:12px;line-height:1.3;text-align:right}
+.user-meta strong{display:block;font-size:13px;color:var(--red-800)}
+.user-meta span{color:var(--airtel-gray)}
+.content{padding:24px}
+.view{display:none}.view.active{display:block}
+
+/* ---------- Cards & Stats ---------- */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{background:#fff;border-radius:14px;padding:18px;box-shadow:var(--shadow);display:flex;align-items:center;gap:14px;border-left:4px solid transparent}
+.stat-card.red-card{border-left-color:var(--red-500)}
+.stat-card.green-card{border-left-color:var(--green)}
+.stat-card.amber-card{border-left-color:var(--amber)}
+.stat-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.stat-icon.red{background:var(--red-100);color:var(--red-600)}
+.stat-icon.green{background:var(--green-light);color:var(--green)}
+.stat-icon.amber{background:var(--amber-light);color:var(--amber)}
+.stat-icon.blue{background:#dbeafe;color:#2563eb}
+.stat-info .num{font-size:24px;font-weight:700;line-height:1;color:var(--red-800)}
+.stat-info .lbl{color:var(--airtel-gray);font-size:12px;margin-top:4px}
+
+.panel{background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:20px;margin-bottom:20px;border:1px solid var(--border)}
+.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.panel-head h3{font-size:15px;font-weight:700;color:var(--red-700)}
+.charts-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}
+.chart-box{background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:20px;border:1px solid var(--border)}
+.chart-box h4{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--red-700)}
+.chart-filters{display:flex;gap:6px;background:var(--red-50);padding:4px;border-radius:8px;margin-bottom:12px;width:fit-content}
+.chart-filters button{padding:6px 12px;border-radius:6px;background:transparent;font-size:12px;font-weight:600;color:var(--airtel-gray);transition:.15s}
+.chart-filters button.active{background:#fff;color:var(--red-600);box-shadow:var(--shadow)}
+
+/* ---------- Buttons ---------- */
+.btn{padding:10px 16px;border-radius:9px;font-weight:600;font-size:13px;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn-red{background:var(--red-500);color:#fff}.btn-red:hover{background:var(--red-600)}
+.btn-green{background:var(--green);color:#fff}.btn-green:hover{background:#15803d}
+.btn-outline{background:#fff;border:1px solid var(--border);color:#5c2020}.btn-outline:hover{border-color:var(--red-400);color:var(--red-600)}
+.btn-ghost{background:transparent;color:var(--airtel-gray)}.btn-sm{padding:7px 12px;font-size:12px}
+.btn-icon{width:32px;height:32px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;font-size:14px;transition:.15s;background:transparent;color:var(--airtel-gray)}
+.btn-icon:hover{background:var(--red-50)}
+.btn-icon.edit:hover{color:#2563eb;background:#dbeafe}
+.btn-icon.delete:hover{color:var(--red-600);background:var(--red-100)}
+.btn-icon.install-quick:hover{color:var(--green);background:var(--green-light)}
+.btn-icon.confirm-yes{color:#fff;background:var(--red-600)}.btn-icon.confirm-yes:hover{background:var(--red-700)}
+.btn-icon.confirm-no{color:#5c2020}.btn-icon.confirm-no:hover{background:var(--red-50)}
+
+/* ---------- Tables ---------- */
+.table-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:680px}
+th{text-align:left;padding:12px;background:var(--red-50);font-weight:600;color:var(--red-700);font-size:11px;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--red-200);white-space:nowrap}
+td{padding:12px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+/* Full-row status colours */
+tr.row-installed{background:var(--green-light)}
+tr.row-installed:hover{background:#bbf7d0}
+tr.row-collected{background:var(--amber-light)}
+tr.row-collected:hover{background:#fef3c7}
+.actions-cell{display:flex;gap:4px;align-items:center}
+.delete-confirm{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--red-700);font-weight:600}
+.badge{display:inline-block;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;text-transform:capitalize}
+.badge.green{background:#fff;color:var(--green-dark);border:1px solid #86efac}
+.badge.amber{background:#fff;color:var(--amber-dark);border:1px solid #fcd34d}
+
+/* ---------- Toolbar & Filters ---------- */
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.search{flex:1;min-width:180px;position:relative}
+.search input{width:100%;padding:10px 12px 10px 36px;border:1px solid var(--border);border-radius:9px;outline:none;background:#fff}
+.search input:focus{border-color:var(--red-400);box-shadow:0 0 0 3px rgba(228,0,0,.08)}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--airtel-gray)}
+.filter-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.filter-group{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--airtel-gray);font-weight:600}
+.filter-group select{padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;outline:none;font-size:13px;min-width:140px;cursor:pointer}
+.filter-group select:focus{border-color:var(--red-400)}
+
+/* ---------- Pagination ---------- */
+.pagination-wrap{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.page-info{font-size:12px;color:var(--airtel-gray);white-space:nowrap}
+.page-info strong{color:var(--red-700);font-weight:600}
+.page-size-select{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--airtel-gray)}
+.page-size-select select{padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;outline:none;background:#fff}
+.page-controls{display:flex;gap:4px;align-items:center}
+.page-btn{min-width:34px;height:34px;padding:0 8px;border-radius:8px;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid var(--border);color:#5c2020;transition:.15s}
+.page-btn:hover:not(:disabled):not(.active){border-color:var(--red-400);color:var(--red-600);background:var(--red-50)}
+.page-btn.active{background:var(--red-500);color:#fff;border-color:var(--red-500)}
+.page-btn:disabled{opacity:.4;cursor:not-allowed}
+.page-ellipsis{min-width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--airtel-gray);letter-spacing:1px}
+
+/* ---------- Modal ---------- */
+.modal-backdrop{position:fixed;inset:0;background:rgba(69,0,0,.45);z-index:300;display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px)}
+.modal-backdrop.open{display:flex}
+.modal-card{background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(69,0,0,.25);width:100%;max-width:440px;animation:modalIn .2s ease-out;border-top:3px solid var(--red-500)}
+@keyframes modalIn{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:20px 24px 0}
+.modal-head h3{font-size:17px;font-weight:700;color:var(--red-700)}
+.modal-close{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:transparent;color:var(--airtel-gray);font-size:18px;transition:.15s}
+.modal-close:hover{background:var(--red-50);color:var(--red-600)}
+.modal-body{padding:20px 24px}
+.modal-foot{padding:0 24px 20px;display:flex;gap:10px;justify-content:flex-end}
+.modal-field{margin-bottom:16px}
+.modal-field label{display:block;font-size:12px;font-weight:600;color:#5c2020;margin-bottom:6px}
+.modal-field input,.modal-field select{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:10px;outline:none;transition:.15s;font-size:14px}
+.modal-field input:focus,.modal-field select:focus{border-color:var(--red-500);box-shadow:0 0 0 3px rgba(228,0,0,.1)}
+.modal-field .hint{font-size:11px;color:var(--airtel-gray);margin-top:4px}
+
+/* ---------- Scanner ---------- */
+.scan-wrapper{position:relative;width:100%;max-width:320px;margin:0 auto;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:4/3;box-shadow:0 4px 14px rgba(0,0,0,.25),0 0 0 2px var(--red-200);animation:scanGlow 2.5s ease-in-out infinite}
+@keyframes scanGlow{0%,100%{box-shadow:0 4px 14px rgba(0,0,0,.25),0 0 0 2px var(--red-200)}50%{box-shadow:0 4px 14px rgba(0,0,0,.25),0 0 20px rgba(228,0,0,.3),0 0 0 2px var(--red-400)}}
+#qr-reader{width:100%!important;height:100%!important;border:none!important;border-radius:14px;overflow:hidden}
+#qr-reader video{width:100%!important;height:100%!important;object-fit:cover;border-radius:14px;display:block}
+#qr-reader__dashboard{display:none!important}
+#qr-reader__scan_region img{display:none!important}
+.scan-overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.45) inset;z-index:10}
+.scan-overlay::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:95%;height:85%;border:2px solid rgba(255,255,255,.85);border-radius:10px;box-shadow:0 0 30px rgba(228,0,0,.4)}
+.scan-line{position:absolute;left:3%;width:94%;height:2px;background:linear-gradient(90deg,transparent,var(--red-500),transparent);box-shadow:0 0 12px var(--red-500),0 0 30px rgba(228,0,0,.3);animation:scanMove 1.8s linear infinite;z-index:11}
+@keyframes scanMove{0%{top:10%}50%{top:90%}100%{top:10%}}
+.ultra-badge{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(228,0,0,.85);color:#fff;font-size:9px;font-weight:800;letter-spacing:.12em;padding:4px 12px;border-radius:20px;z-index:20;pointer-events:none;text-transform:uppercase;backdrop-filter:blur(4px);display:flex;align-items:center;gap:5px}
+.ultra-badge .dot{width:6px;height:6px;border-radius:50%;background:#4ade80;animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+.torch-btn{position:absolute;bottom:15px;right:15px;width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;border:1px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;z-index:20;cursor:pointer;font-size:18px;transition:.2s;backdrop-filter:blur(4px)}
+.torch-btn.active{background:var(--red-500);border-color:#fff;box-shadow:0 0 14px rgba(228,0,0,.6)}
+.scan-toggle{display:flex;gap:8px;margin-bottom:16px;background:var(--red-50);padding:4px;border-radius:10px}
+.scan-toggle button{flex:1;padding:10px;border-radius:8px;background:transparent;font-weight:600;font-size:13px;color:var(--airtel-gray)}
+.scan-toggle button.active{background:#fff;color:var(--red-600);box-shadow:var(--shadow)}
+.scan-hint{text-align:center;color:var(--airtel-gray);font-size:12px;margin-top:12px;line-height:1.6}
+
+/* ---------- Pending Items ---------- */
+.pending-item{background:#fff;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-weight:600;font-size:14px;display:flex;justify-content:space-between;align-items:center;transition:.15s;border-left:4px solid var(--red-400)}
+.pending-item:hover{box-shadow:var(--shadow)}
+.pending-item .pending-left{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.pending-item .pending-left span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pending-item .pending-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.pending-item.install-type{border-left-color:var(--green);background:var(--green-light)}
+.pending-item.install-type:hover{background:#bbf7d0}
+.pending-remove{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;background:transparent;color:var(--airtel-gray);font-size:16px;transition:.15s;flex-shrink:0}
+.pending-remove:hover{background:var(--red-100);color:var(--red-600)}
+
+/* ---------- Toast ---------- */
+.toast-wrap{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:400;display:flex;flex-direction:column;gap:8px;width:90%;max-width:380px}
+.toast{background:var(--red-800);color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:10px;animation:slideUp .25s;text-align:center;justify-content:center;line-height:1.4}
+.toast.success{background:var(--green)}
+.toast.error{background:var(--red-600)}
+.toast.info{background:#2563eb}
+.toast .t-ico{font-size:16px;flex-shrink:0}
+.toast .t-body{display:flex;flex-direction:column;gap:2px}
+.toast .t-sub{font-size:11px;opacity:.85;font-weight:400}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.empty{text-align:center;padding:40px 20px;color:var(--airtel-gray)}
+.empty .ico{font-size:40px;margin-bottom:8px;opacity:.5}
+
+/* ---------- Responsive ---------- */
+@media(max-width:860px){
+  .sidebar{display:none}.mobile-nav{display:flex}.main{margin-left:0;padding-bottom:70px}
+  .charts-grid{grid-template-columns:1fr}.content{padding:16px}.topbar{padding:12px 16px}.panel{padding:16px}.user-meta{display:none}
+  .pagination-wrap{flex-direction:column;align-items:stretch}.page-controls{justify-content:center;flex-wrap:wrap}.page-size-select{justify-content:center}.page-info{text-align:center}
+}
+@media(max-width:480px){
+  .stats-grid{grid-template-columns:1fr 1fr;gap:12px}
+  .stat-card{padding:14px;flex-direction:column;align-items:flex-start;text-align:left;gap:8px}
+  .stat-icon{width:40px;height:40px;font-size:18px}.stat-info .num{font-size:20px}
+  .scan-wrapper{max-width:290px}.filter-row{flex-direction:column;align-items:stretch}
+  .filter-group select{width:100%;min-width:0}
+  .modal-card{margin:12px;border-radius:14px}.modal-head{padding:16px 18px 0}.modal-body{padding:16px 18px}.modal-foot{padding:0 18px 16px}
+}
+</style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="authScreen" class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-head">
+      <div class="logo"><img src="https://z-cdn-media.chatglm.cn/files/8f34f09f-bbc3-4ccc-82f5-23ce945592fa.png?auth_key=1883896355-c0247abc05e24d15bd46155b11d12055-0-d0987e2c420b192127d59bc546fe6e8a" alt="airtel" /></div>
+      <h1>ODU Collector</h1>
+      <p>Airtel Zambia — 5G WiFi Router IMEI Collection</p>
+    </div>
+    <div class="auth-body">
+      <div id="authError" class="auth-error"></div>
+      <div id="loginForm">
+        <div class="field"><label>Contact Number</label><input type="tel" id="loginContact" placeholder="e.g. 0977123456" /></div>
+        <div class="field"><label>Password</label><input type="password" id="loginPassword" placeholder="Your password" /></div>
+        <button class="btn-primary" id="loginBtn">Sign In</button>
+        <div class="auth-switch">No account? <a id="goToRegister">Create one</a></div>
+      </div>
+      <div id="registerForm" style="display:none">
+        <div class="field"><label>Full Name</label><input type="text" id="regName" placeholder="John Banda" /></div>
+        <div class="field"><label>Contact Number</label><input type="tel" id="regContact" placeholder="0977123456" /></div>
+        <div class="field"><label>Role</label><select id="regRole"><option value="installer">Installer</option><option value="supervisor">Supervisor</option></select></div>
+        <div class="field"><label>Cluster Name</label><input type="text" id="regCluster" placeholder="e.g. Lusaka Central" /></div>
+        <div class="field"><label>Password</label><input type="password" id="regPassword" placeholder="Min 4 characters" /></div>
+        <button class="btn-primary" id="registerBtn">Create Account</button>
+        <div class="auth-switch">Already have an account? <a id="goToLogin">Sign in</a></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div id="app" class="app">
+  <aside class="sidebar">
+    <div class="brand"><img src="https://z-cdn-media.chatglm.cn/files/8f34f09f-bbc3-4ccc-82f5-23ce945592fa.png?auth_key=1883896355-c0247abc05e24d15bd46155b11d12055-0-d0987e2c420b192127d59bc546fe6e8a" alt="airtel" /></div>
+    <div class="nav-section">Main</div>
+    <div class="nav-item active" data-view="dashboard"><span class="icon">▣</span> Dashboard</div>
+    <div class="nav-item" data-view="add"><span class="icon">＋</span> Collect / Install</div>
+    <div class="nav-item" data-view="all"><span class="icon">≡</span> All Devices</div>
+    <div style="flex:1"></div>
+    <div class="nav-section">Account</div>
+    <div class="nav-item" data-view="profile"><span class="icon">◉</span> Profile</div>
+    <div class="nav-item" id="logoutBtn"><span class="icon">⏻</span> Sign Out</div>
+  </aside>
+
+  <nav class="mobile-nav">
+    <div class="m-nav-item active" data-view="dashboard"><span class="icon">▣</span> Home</div>
+    <div class="m-nav-item" data-view="add"><span class="icon">＋</span> Scan</div>
+    <div class="m-nav-item" data-view="all"><span class="icon">≡</span> List</div>
+    <div class="m-nav-item" data-view="profile"><span class="icon">◉</span> Me</div>
+  </nav>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="page-title" id="pageTitle">Dashboard</div>
+      <div class="user-chip">
+        <div class="user-meta"><strong id="userName">John Banda</strong><span id="userRole">Installer · Lusaka Central</span></div>
+        <div class="user-avatar" id="userAvatar">JB</div>
+      </div>
+    </div>
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <section class="view active" id="view-dashboard">
+        <div class="stats-grid" id="statsGrid"></div>
+        <div class="charts-grid">
+          <div class="chart-box">
+            <h4>Collections Trend</h4>
+            <div class="chart-filters">
+              <button class="active" data-range="7">Last 7 Days</button>
+              <button data-range="30">Last 30 Days</button>
+              <button data-range="month">This Month</button>
+            </div>
+            <canvas id="trendChart" height="120"></canvas>
+          </div>
+          <div class="chart-box"><h4>Status Breakdown</h4><canvas id="statusChart" height="120"></canvas></div>
+        </div>
+        <div class="panel" style="margin-top:20px">
+          <div class="panel-head"><h3>Recent Activity</h3><button class="btn btn-outline btn-sm" data-goto="all">View All</button></div>
+          <div class="table-wrap">
+            <table id="recentTable"><thead><tr><th>IMEI</th><th>Cluster</th><th>Status</th><th>Collected By</th><th>Time</th></tr></thead><tbody></tbody></table>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCAN / INSTALL -->
+      <section class="view" id="view-add">
+        <div class="panel" style="max-width:520px;margin:0 auto">
+          <div class="panel-head"><h3>Scan Barcode</h3></div>
+          <div style="background:var(--red-50);border:1px solid var(--red-200);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--red-700);line-height:1.5">
+            <strong>How it works:</strong> Scan a new IMEI to collect it, or re-scan a collected IMEI to mark it as <strong>installed</strong>. Pending items are private to your session.
+          </div>
+          <div class="scan-toggle">
+            <button id="modeScan" class="active">Scan Barcode</button>
+            <button id="modeManual">Manual Entry</button>
+          </div>
+          <div id="scanArea">
+            <div class="scan-wrapper">
+              <div id="qr-reader"></div>
+              <div class="scan-overlay"><div class="scan-line"></div></div>
+              <div class="ultra-badge"><span class="dot"></span>Ultra Scan Active</div>
+              <button id="torchBtn" class="torch-btn">💡</button>
+            </div>
+            <p class="scan-hint">Full-frame detection — point anywhere in the camera view.</p>
+            <div id="cameraError" style="display:none;background:var(--red-100);padding:12px;border-radius:8px;color:var(--red-700);font-size:12px;margin-top:8px"></div>
+          </div>
+          <div id="manualArea" style="display:none">
+            <div class="field"><label>Serial / IMEI Number</label><input type="text" id="manualSerial" placeholder="Enter serial number" autocomplete="off"/></div>
+            <button class="btn btn-red" id="submitManualBtn" style="width:100%;padding:13px;margin-top:6px">Process IMEI</button>
+          </div>
+        </div>
+        <div class="panel" style="max-width:520px;margin:16px auto 0">
+          <div class="panel-head"><h3>My Pending Actions</h3></div>
+          <div id="pendingScans" style="max-height:240px;overflow-y:auto"><div class="empty" style="padding:20px"><div class="ico">📷</div>No scans yet</div></div>
+        </div>
+        <div class="panel" style="max-width:520px;margin:16px auto 0">
+          <div class="panel-head"><h3>Saved This Session</h3></div>
+          <div id="quickLog" style="max-height:300px;overflow-y:auto"><div class="empty"><div class="ico">📋</div>No actions this session</div></div>
+        </div>
+      </section>
+
+      <!-- ALL DEVICES -->
+      <section class="view" id="view-all">
+        <div class="toolbar">
+          <div class="search"><span class="search-icon">⌕</span><input type="text" id="searchAll" placeholder="Search IMEI, name, cluster..." /></div>
+          <button class="btn btn-outline btn-sm" id="exportAllExcel">↓ Excel</button>
+          <button class="btn btn-outline btn-sm" id="exportAllPdf">↓ PDF</button>
+        </div>
+        <div class="filter-row">
+          <div class="filter-group"><span>Installer:</span><select id="filterInstaller"><option value="all">All Installers</option></select></div>
+          <div class="filter-group"><span>Status:</span><select id="filterStatus"><option value="all">All Statuses</option><option value="collected">Collected Only</option><option value="installed">Installed Only</option></select></div>
+        </div>
+        <div class="panel">
+          <div class="table-wrap">
+            <table id="allTable">
+              <thead><tr><th>IMEI</th><th>Cluster</th><th>Status</th><th>Collected By</th><th>Collected At</th><th style="text-align:center">Actions</th></tr></thead>
+              <tbody id="allTableBody"></tbody>
+            </table>
+          </div>
+          <div class="pagination-wrap" id="paginationWrap">
+            <div class="page-info" id="pageInfo"></div>
+            <div class="page-size-select"><span>Show</span><select id="pageSizeSelect"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select><span>per page</span></div>
+            <div class="page-controls" id="pageControls"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PROFILE -->
+      <section class="view" id="view-profile">
+        <div class="panel" style="max-width:520px"><div class="panel-head"><h3>My Profile</h3></div><div id="profileInfo"></div></div>
+        <div class="panel" style="max-width:520px">
+          <div class="panel-head"><h3>My Summary</h3><button class="btn btn-red btn-sm" id="logoutBtnMobile">Sign Out</button></div>
+          <div id="profileStats"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-backdrop" id="editModal">
+  <div class="modal-card">
+    <div class="modal-head"><h3>Edit Device Record</h3><button class="modal-close" id="editModalClose">&times;</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="editDeviceId" />
+      <div class="modal-field"><label>IMEI / Serial Number</label><input type="text" id="editSerial" placeholder="Enter IMEI" /></div>
+      <div class="modal-field"><label>Cluster</label><input type="text" id="editCluster" placeholder="Enter cluster" /></div>
+      <div class="modal-field">
+        <label>Installation Status</label>
+        <select id="editStatus"><option value="collected">Collected (Not Yet Installed)</option><option value="installed">Installed</option></select>
+        <div class="hint" id="editInstalledHint" style="display:none"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" id="editCancelBtn">Cancel</button>
+      <button class="btn btn-red" id="editSaveBtn">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* ============================================================
+   STORAGE
+============================================================ */
+var DB={
+  users:function(){return JSON.parse(localStorage.getItem('airtel_users')||'[]');},
+  devices:function(){return JSON.parse(localStorage.getItem('airtel_devices')||'[]');},
+  saveUsers:function(u){localStorage.setItem('airtel_users',JSON.stringify(u));},
+  saveDevices:function(d){localStorage.setItem('airtel_devices',JSON.stringify(d));},
+  session:function(){return JSON.parse(sessionStorage.getItem('airtel_session')||'null');},
+  setSession:function(s){sessionStorage.setItem('airtel_session',JSON.stringify(s));},
+  clearSession:function(){sessionStorage.removeItem('airtel_session');}
+};
+function checkMonthlyReset(){var cm=new Date().getMonth(),sm=localStorage.getItem('airtel_data_month');if(sm===null){localStorage.setItem('airtel_data_month',cm.toString());return;}if(parseInt(sm,10)!==cm){localStorage.removeItem('airtel_devices');localStorage.setItem('airtel_data_month',cm.toString());}}
+function uid(){return 'id'+Math.random().toString(36).slice(2,10);}
+
+function seed(){
+  if(DB.users().length>0)return;
+  var users=[
+    {id:uid(),fullName:'John Banda',contact:'0977123456',role:'installer',cluster:'Lusaka Central',password:'1234',createdAt:Date.now()},
+    {id:uid(),fullName:'Mary Phiri',contact:'0966111222',role:'installer',cluster:'Lusaka Central',password:'1234',createdAt:Date.now()},
+    {id:uid(),fullName:'Peter Tembo',contact:'0955333444',role:'supervisor',cluster:'Lusaka Central',password:'1234',createdAt:Date.now()},
+    {id:uid(),fullName:'Jane Bwalya',contact:'0977888999',role:'installer',cluster:'Kitwe North',password:'1234',createdAt:Date.now()}
+  ];
+  DB.saveUsers(users);
+  var devs=[],now=Date.now();
+  for(var i=0;i<47;i++){
+    var inst=users[i%2];
+    var isInstalled=(i%3===0);
+    devs.push({id:uid(),serial:'860480'+(100000000+i).toString().slice(0,9),cluster:inst.cluster,collectedBy:inst.id,collectedByName:inst.fullName,collectedAt:now-(i)*3600e3,installed:isInstalled,installedAt:isInstalled?(now-(i)*3600e3+1800000):null,createdAt:now-(i)*3600e3});
+  }
+  DB.saveDevices(devs);
+}
+checkMonthlyReset();seed();
+
+/* ============================================================
+   UTILITIES
+============================================================ */
+function $(s){return document.querySelector(s);}
+function $$(s){return document.querySelectorAll(s);}
+function showAuthError(msg){var e=$('#authError');e.textContent=msg;e.style.display='block';setTimeout(function(){e.style.display='none';},4000);}
+function toast(msg,type,sub){
+  type=type||'success';sub=sub||'';
+  var t=document.createElement('div');t.className='toast '+type;
+  var ico=type==='success'?'✓':(type==='error'?'⚠':(type==='info'?'ℹ':'•'));
+  t.innerHTML='<span class="t-ico">'+ico+'</span><div class="t-body"><span>'+msg+'</span>'+(sub?'<span class="t-sub">'+sub+'</span>':'')+'</div>';
+  $('#toastWrap').appendChild(t);
+  setTimeout(function(){t.style.opacity='0';t.style.transition='.3s';setTimeout(function(){t.remove();},300);},3000);
+}
+var audioCtx=null;
+function beep(){try{if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();var o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sine';o.frequency.value=1200;g.gain.setValueAtTime(0.35,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.12);o.start();o.stop(audioCtx.currentTime+0.12);}catch(e){}}
+function beepLow(){try{if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();var o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='triangle';o.frequency.value=600;g.gain.setValueAtTime(0.3,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.2);o.start();o.stop(audioCtx.currentTime+0.2);}catch(e){}}
+function fmt(ts){if(!ts)return '—';var d=new Date(ts);return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});}
+function fmtFull(ts){if(!ts)return '—';return new Date(ts).toLocaleString('en-GB');}
+function statusBadge(installed){return installed?'<span class="badge green">Installed</span>':'<span class="badge amber">Collected</span>';}
+
+/* ============================================================
+   AUTH
+============================================================ */
+var currentUser=null;
+ $('#goToRegister').onclick=function(){$('#loginForm').style.display='none';$('#registerForm').style.display='block';};
+ $('#goToLogin').onclick=function(){$('#registerForm').style.display='none';$('#loginForm').style.display='block';};
+ $('#registerBtn').onclick=function(){
+  var fn=$('#regName').value.trim(),ct=$('#regContact').value.trim(),ro=$('#regRole').value,cl=$('#regCluster').value.trim(),pw=$('#regPassword').value;
+  if(!fn||!ct||!cl||pw.length<4)return showAuthError('Please fill all fields. Password min 4 chars.');
+  var users=DB.users();if(users.find(function(u){return u.contact===ct;}))return showAuthError('Contact already registered');
+  users.push({id:uid(),fullName:fn,contact:ct,role:ro,cluster:cl,password:pw,createdAt:Date.now()});DB.saveUsers(users);toast('Account created — sign in now');$('#goToLogin').click();$('#loginContact').value=ct;
+};
+ $('#loginBtn').onclick=function(){var ct=$('#loginContact').value.trim(),pw=$('#loginPassword').value;var user=DB.users().find(function(u){return u.contact===ct&&u.password===pw;});if(!user)return showAuthError('Invalid contact or password');DB.setSession({id:user.id,ts:Date.now()});startApp(user);};
+ $('#loginPassword').addEventListener('keydown',function(e){if(e.key==='Enter')$('#loginBtn').click();});
+function startApp(user){currentUser=user;$('#authScreen').style.display='none';$('#app').classList.add('active');$('#userName').textContent=user.fullName;$('#userRole').textContent=user.role.charAt(0).toUpperCase()+user.role.slice(1)+' · '+user.cluster;$('#userAvatar').textContent=user.fullName.split(' ').map(function(p){return p[0];}).slice(0,2).join('').toUpperCase();navigate('dashboard');}
+function logout(){stopScanner();DB.clearSession();currentUser=null;$('#app').classList.remove('active');$('#authScreen').style.display='flex';$('#loginPassword').value='';}
+ $('#logoutBtn').onclick=logout;$('#logoutBtnMobile').onclick=logout;
+(function(){var s=DB.session();if(s){var user=DB.users().find(function(u){return u.id===s.id;});if(user)startApp(user);}})();
+
+/* ============================================================
+   NAVIGATION
+============================================================ */
+var titles={dashboard:'Dashboard',add:'Collect / Install',all:'All Devices',profile:'My Profile'};
+function navigate(view){
+  $$('.view').forEach(function(v){v.classList.remove('active');});$$('.nav-item,.m-nav-item').forEach(function(n){n.classList.remove('active');});
+  $('#view-'+view).classList.add('active');document.querySelectorAll('[data-view="'+view+'"]').forEach(function(n){n.classList.add('active');});
+  $('#pageTitle').textContent=titles[view]||'';
+  if(view!=='add')stopScanner();
+  if(view==='dashboard')renderDashboard();
+  if(view==='all'){currentPage=1;populateInstallerFilter();renderAll();}
+  if(view==='profile')renderProfile();
+}
+ $$('.nav-item[data-view],.m-nav-item[data-view]').forEach(function(n){n.onclick=function(){navigate(n.dataset.view);};});
+var gba=$('[data-goto="all"]');if(gba)gba.addEventListener('click',function(){navigate('all');});
+
+/* ============================================================
+   VISIBILITY
+============================================================ */
+function visibleDevices(){
+  var all=DB.devices();
+  if(currentUser.role==='supervisor')return all.filter(function(d){return d.cluster===currentUser.cluster;});
+  return all.filter(function(d){return d.collectedBy===currentUser.id;});
+}
+function canModify(device){if(currentUser.role==='supervisor')return device.cluster===currentUser.cluster;return device.collectedBy===currentUser.id;}
+
+/* ============================================================
+   DASHBOARD
+============================================================ */
+var trendChart=null,statusChart=null,currentRange='7';
+function renderDashboard(){
+  var devs=visibleDevices();
+  var today=new Date();today.setHours(0,0,0,0);
+  var todayCount=devs.filter(function(d){return new Date(d.collectedAt)>=today;}).length;
+  var installedCount=devs.filter(function(d){return d.installed;}).length;
+  var pendingCount=devs.length-installedCount;
+  var cards=[
+    {num:devs.length,lbl:'Total Collected',cls:'red',ico:'◉',card:'red-card'},
+    {num:installedCount,lbl:'Installed',cls:'green',ico:'✓',card:'green-card'},
+    {num:pendingCount,lbl:'Pending Install',cls:'amber',ico:'⏳',card:'amber-card'}
+  ];
+  $('#statsGrid').innerHTML=cards.map(function(c){return '<div class="stat-card '+c.card+'"><div class="stat-icon '+c.cls+'">'+c.ico+'</div><div class="stat-info"><div class="num">'+c.num+'</div><div class="lbl">'+c.lbl+'</div></div></div>';}).join('');
+  renderTrendChart(devs);
+  if(statusChart)statusChart.destroy();
+  statusChart=new Chart($('#statusChart'),{type:'doughnut',data:{labels:['Installed','Pending Install'],datasets:[{data:[installedCount,pendingCount],backgroundColor:['#16a34a','#d97706'],borderWidth:0}]},options:{responsive:true,cutout:'65%',plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}}}});
+  var recent=devs.slice().sort(function(a,b){return b.createdAt-a.createdAt;}).slice(0,6);
+  $('#recentTable tbody').innerHTML=recent.length?recent.map(function(d){
+    var rowCls=d.installed?'row-installed':'row-collected';
+    return '<tr class="'+rowCls+'"><td><strong>'+d.serial+'</strong></td><td>'+(d.cluster||'—')+'</td><td>'+statusBadge(d.installed)+'</td><td>'+(d.collectedByName||'—')+'</td><td>'+fmt(d.collectedAt)+'</td></tr>';
+  }).join(''):'<tr><td colspan="5" class="empty">No devices yet</td></tr>';
+}
+function renderTrendChart(devs){
+  var labels=[],days=[];
+  if(currentRange==='7'){for(var i=6;i>=0;i--){var d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-i);var nx=new Date(d);nx.setDate(nx.getDate()+1);labels.push(d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric'}));days.push({start:d.getTime(),end:nx.getTime()});}}
+  else if(currentRange==='30'){for(var i=29;i>=0;i--){var d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-i);var nx=new Date(d);nx.setDate(nx.getDate()+1);labels.push(d.toLocaleDateString('en-GB',{day:'numeric'}));days.push({start:d.getTime(),end:nx.getTime()});}}
+  else if(currentRange==='month'){var now=new Date();var dim=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();for(var i=1;i<=dim;i++){var d=new Date(now.getFullYear(),now.getMonth(),i);d.setHours(0,0,0,0);var nx=new Date(d);nx.setDate(nx.getDate()+1);labels.push(i.toString());days.push({start:d.getTime(),end:nx.getTime()});}}
+  var cpd=days.map(function(d){return devs.filter(function(x){return x.collectedAt>=d.start&&x.collectedAt<d.end;}).length;});
+  if(trendChart)trendChart.destroy();
+  trendChart=new Chart($('#trendChart'),{type:'bar',data:{labels:labels,datasets:[{label:'Collected',data:cpd,backgroundColor:'#E40000',borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
+}
+ $$('.chart-filters button').forEach(function(btn){btn.onclick=function(){$$('.chart-filters button').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');currentRange=btn.dataset.range;renderTrendChart(visibleDevices());};});
+
+/* ============================================================
+   SCANNER
+============================================================ */
+var html5QrCode=null,scanMode='scan',pendingScans=[],torchOn=false;
+function findDevice(serial){return DB.devices().find(function(d){return d.serial===serial;})||null;}
+
+ $('#modeScan').onclick=function(){scanMode='scan';$('#modeScan').classList.add('active');$('#modeManual').classList.remove('active');$('#scanArea').style.display='block';$('#manualArea').style.display='none';startScanner();};
+ $('#modeManual').onclick=function(){scanMode='manual';$('#modeManual').classList.add('active');$('#modeScan').classList.remove('active');$('#scanArea').style.display='none';$('#manualArea').style.display='block';stopScanner();};
+
+function startScanner(){
+  if(scanMode!=='scan')return;$('#cameraError').style.display='none';
+  var config={fps:30,aspectRatio:4/3,experimentalFeatures:{useBarCodeDetectorIfSupported:true}};
+  var cameraConfig={facingMode:'environment'};
+  if(html5QrCode){try{html5QrCode.start(cameraConfig,config,onScanSuccess).then(boostResolution).catch(function(err){showCameraError(err);});return;}catch(e){}}
+  html5QrCode=new Html5Qrcode('qr-reader');
+  html5QrCode.start(cameraConfig,config,onScanSuccess).then(boostResolution).catch(function(err){showCameraError(err);});
+}
+function boostResolution(){if(!html5QrCode)return;html5QrCode.applyVideoConstraints({width:{ideal:1920},height:{ideal:1080}}).catch(function(){});}
+function showCameraError(err){$('#cameraError').style.display='block';$('#cameraError').innerHTML='<strong>Camera Error</strong><br>'+err+'. Please ensure camera permissions are granted, or use Manual Entry.';}
+function stopScanner(){if(html5QrCode){try{html5QrCode.stop();}catch(e){}try{html5QrCode.clear();}catch(e){}}}
+
+ $('#torchBtn').onclick=function(e){e.stopPropagation();if(!html5QrCode)return;try{torchOn=!torchOn;html5QrCode.applyVideoConstraints({advanced:[{torch:torchOn}]}).then(function(){$('#torchBtn').classList.toggle('active',torchOn);}).catch(function(err){toast('Flashlight not supported','error');torchOn=false;});}catch(err){toast('Flashlight not supported','error');torchOn=false;}};
+
+function onScanSuccess(decodedText){
+  var text=decodedText.trim();if(!text)return;
+  if(pendingScans.some(function(p){return p.serial===text;}))return;
+  var existing=findDevice(text);
+  if(existing){
+    if(existing.installed){toast('Already installed','info',text+' — installed by '+existing.collectedByName);return;}
+    pendingScans.unshift({serial:text,type:'install',owner:currentUser.id});
+    beepLow();
+  }else{
+    pendingScans.unshift({serial:text,type:'new',owner:currentUser.id});
+    beep();
+  }
+  renderPending();
+}
+
+function renderPending(){
+  if(pendingScans.length===0){$('#pendingScans').innerHTML='<div class="empty" style="padding:20px"><div class="ico">📷</div>No scans yet</div>';return;}
+  $('#pendingScans').innerHTML=pendingScans.map(function(p,i){
+    if(p.type==='install'){
+      return '<div class="pending-item install-type" data-idx="'+i+'"><div class="pending-left"><span>'+p.serial+'</span></div><div class="pending-right"><span class="btn btn-green btn-sm" data-action="process" data-idx="'+i+'">Install</span><button class="pending-remove" data-action="remove" data-idx="'+i+'" title="Remove">&times;</button></div></div>';
+    }
+    return '<div class="pending-item" data-idx="'+i+'"><div class="pending-left"><span>'+p.serial+'</span></div><div class="pending-right"><span class="btn btn-red btn-sm" data-action="process" data-idx="'+i+'">Save</span><button class="pending-remove" data-action="remove" data-idx="'+i+'" title="Remove">&times;</button></div></div>';
+  }).join('');
+}
+
+/* Event delegation for pending list — process or remove */
+ $('#pendingScans').addEventListener('click',function(e){
+  var btn=e.target.closest('[data-action]');if(!btn)return;
+  var idx=parseInt(btn.dataset.idx,10);
+  var action=btn.dataset.action;
+  if(action==='process'){
+    var item=pendingScans[idx];if(!item)return;
+    if(item.type==='install')markInstalled(item.serial);
+    else saveNew(item.serial);
+  }
+  if(action==='remove'){
+    pendingScans.splice(idx,1);renderPending();
+  }
+});
+
+function saveNew(serial){
+  pendingScans=pendingScans.filter(function(p){return p.serial!==serial;});renderPending();
+  var existing=findDevice(serial);
+  if(existing){toast('Already in database','error',(existing.collectedByName||'Unknown')+' · '+fmt(existing.collectedAt));return;}
+  var devices=DB.devices();
+  devices.push({id:uid(),serial:serial,cluster:currentUser.cluster,collectedBy:currentUser.id,collectedByName:currentUser.fullName,collectedAt:Date.now(),installed:false,installedAt:null,createdAt:Date.now()});
+  DB.saveDevices(devices);toast('Collected: '+serial,'success','Status: Pending Install');addQuickLog(serial,'Collected');
+}
+
+function markInstalled(serial){
+  pendingScans=pendingScans.filter(function(p){return p.serial!==serial;});renderPending();
+  var devices=DB.devices();var found=false;
+  for(var i=0;i<devices.length;i++){
+    if(devices[i].serial===serial){
+      if(devices[i].installed){toast('Already installed','info',serial);found=true;break;}
+      devices[i].installed=true;devices[i].installedAt=Date.now();found=true;break;
+    }
+  }
+  if(!found){toast('Device not found','error',serial);return;}
+  DB.saveDevices(devices);toast('Installed: '+serial,'success','Marked as installed');addQuickLog(serial,'Installed');
+}
+
+ $('#submitManualBtn').onclick=function(){
+  var s=$('#manualSerial').value.trim();if(!s){toast('Type a serial first','error');return;}
+  var existing=findDevice(s);
+  if(existing){if(existing.installed){toast('Already installed','info',s);$('#manualSerial').value='';return;}markInstalled(s);}
+  else saveNew(s);
+  $('#manualSerial').value='';
+};
+ $('#manualSerial').addEventListener('keydown',function(e){if(e.key==='Enter')$('#submitManualBtn').click();});
+
+var quickLogItems=[];
+function addQuickLog(serial,action){
+  quickLogItems.unshift({serial:serial,action:action,ts:Date.now()});
+  $('#quickLog').innerHTML=quickLogItems.map(function(i){
+    var isInstall=i.action==='Installed';var badgeCls=isInstall?'green':'amber';
+    return '<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);align-items:center"><div><strong>'+i.serial+'</strong><br><small style="color:var(--airtel-gray)">'+i.action+' by '+currentUser.fullName+'</small></div><span class="badge '+badgeCls+'" style="margin-right:8px">'+i.action+'</span><small style="color:var(--airtel-gray)">'+new Date(i.ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+'</small></div>';
+  }).join('')||'<div class="empty"><div class="ico">📋</div>No actions this session</div>';
+}
+
+/* ============================================================
+   ALL DEVICES — CRUD + PAGINATION + FILTERS + ROW COLOURS
+============================================================ */
+var currentPage=1,pageSize=10,deletingId=null;
+
+function populateInstallerFilter(){
+  var select=$('#filterInstaller');var currentVal=select.value;
+  var users=DB.users().filter(function(u){
+    if(currentUser.role==='supervisor')return u.cluster===currentUser.cluster;
+    return u.id===currentUser.id;
+  });
+  select.innerHTML='<option value="all">All Installers</option>';
+  users.forEach(function(u){var opt=document.createElement('option');opt.value=u.id;opt.textContent=u.fullName;select.appendChild(opt);});
+  select.value=(currentVal&&users.some(function(u){return u.id===currentVal;}))?currentVal:'all';
+  if(currentUser.role==='installer')select.value=currentUser.id;
+}
+
+function getFilteredDevices(){
+  var devs=visibleDevices();
+  var q=($('#searchAll').value||'').toLowerCase();
+  var filterInst=$('#filterInstaller').value;
+  var filterStatus=$('#filterStatus').value;
+  if(q){devs=devs.filter(function(d){return d.serial.toLowerCase().indexOf(q)!==-1||(d.collectedByName||'').toLowerCase().indexOf(q)!==-1||(d.cluster||'').toLowerCase().indexOf(q)!==-1;});}
+  if(filterInst!=='all'){devs=devs.filter(function(d){return d.collectedBy===filterInst;});}
+  if(filterStatus==='collected'){devs=devs.filter(function(d){return !d.installed;});}
+  if(filterStatus==='installed'){devs=devs.filter(function(d){return d.installed;});}
+  return devs.sort(function(a,b){return b.createdAt-a.createdAt;});
+}
+
+function renderAll(){
+  var filtered=getFilteredDevices();var totalItems=filtered.length;
+  var totalPages=Math.max(1,Math.ceil(totalItems/pageSize));
+  if(currentPage>totalPages)currentPage=totalPages;if(currentPage<1)currentPage=1;
+  var startIdx=(currentPage-1)*pageSize;var endIdx=Math.min(startIdx+pageSize,totalItems);
+  var pageItems=filtered.slice(startIdx,endIdx);
+
+  var tbody=$('#allTableBody');
+  if(pageItems.length===0){tbody.innerHTML='<tr><td colspan="6" class="empty">No devices found</td></tr>';}
+  else{
+    tbody.innerHTML=pageItems.map(function(d){
+      var mod=canModify(d);var isDel=(deletingId===d.id);
+      var rowCls=d.installed?'row-installed':'row-collected';
+
+      if(isDel){
+        return '<tr class="'+rowCls+'" data-id="'+d.id+'"><td><strong>'+d.serial+'</strong></td><td>'+(d.cluster||'—')+'</td><td>'+statusBadge(d.installed)+'</td><td>'+(d.collectedByName||'—')+'</td><td>'+fmt(d.collectedAt)+'</td><td><div class="actions-cell"><div class="delete-confirm"><span>Delete?</span><button class="btn-icon confirm-yes" data-action="confirmDelete" data-id="'+d.id+'">&#10003;</button><button class="btn-icon confirm-no" data-action="cancelDelete">&#10005;</button></div></div></td></tr>';
+      }
+
+      var actions='';
+      if(mod){
+        actions+='<button class="btn-icon edit" data-action="edit" data-id="'+d.id+'" title="Edit">&#9998;</button>';
+        actions+='<button class="btn-icon delete" data-action="delete" data-id="'+d.id+'" title="Delete">&#128465;</button>';
+        if(!d.installed){actions+='<button class="btn-icon install-quick" data-action="quickInstall" data-id="'+d.id+'" title="Mark Installed" style="font-weight:bold;font-size:16px">&#10003;</button>';}
+      }else{actions='<span style="font-size:11px;color:var(--airtel-gray)">View only</span>';}
+
+      var installedInfo='';if(d.installed&&d.installedAt){installedInfo='<br><small style="color:var(--green-dark)">Installed: '+fmt(d.installedAt)+'</small>';}
+
+      return '<tr class="'+rowCls+'" data-id="'+d.id+'"><td><strong>'+d.serial+'</strong></td><td>'+(d.cluster||'—')+'</td><td>'+statusBadge(d.installed)+installedInfo+'</td><td>'+(d.collectedByName||'—')+'</td><td>'+fmt(d.collectedAt)+'</td><td><div class="actions-cell">'+actions+'</div></td></tr>';
+    }).join('');
+  }
+
+  if(totalItems===0){$('#pageInfo').innerHTML='No entries';}
+  else{$('#pageInfo').innerHTML='Showing <strong>'+(startIdx+1)+'–'+endIdx+'</strong> of <strong>'+totalItems+'</strong> entries';}
+  renderPageControls(totalPages);
+}
+
+function renderPageControls(totalPages){
+  var c=$('#pageControls');if(totalPages<=1){c.innerHTML='';return;}
+  var html='<button class="page-btn" data-page="prev" '+(currentPage===1?'disabled':'')+'>&#8249;</button>';
+  var pages=[];
+  if(totalPages<=7){for(var i=1;i<=totalPages;i++)pages.push(i);}
+  else{pages.push(1);if(currentPage>3)pages.push('...');var s=Math.max(2,currentPage-1),e=Math.min(totalPages-1,currentPage+1);for(var i=s;i<=e;i++)pages.push(i);if(currentPage<totalPages-2)pages.push('...');pages.push(totalPages);}
+  for(var i=0;i<pages.length;i++){if(pages[i]==='...'){html+='<span class="page-ellipsis">...</span>';}else{html+='<button class="page-btn'+(pages[i]===currentPage?' active':'')+'" data-page="'+pages[i]+'">'+pages[i]+'</button>';}}
+  html+='<button class="page-btn" data-page="next" '+(currentPage===totalPages?'disabled':'')+'>&#8250;</button>';
+  c.innerHTML=html;
+}
+
+ $('#allTable').addEventListener('click',function(e){
+  var btn=e.target.closest('[data-action]');if(!btn)return;
+  var action=btn.dataset.action,id=btn.dataset.id;
+  if(action==='edit')openEditModal(id);
+  if(action==='delete'){deletingId=id;renderAll();}
+  if(action==='confirmDelete')deleteDevice(id);
+  if(action==='cancelDelete'){deletingId=null;renderAll();}
+  if(action==='quickInstall')quickInstallDevice(id);
+});
+ $('#pageControls').addEventListener('click',function(e){
+  var btn=e.target.closest('[data-page]');if(!btn||btn.disabled)return;
+  var val=btn.dataset.page;var total=Math.max(1,Math.ceil(getFilteredDevices().length/pageSize));
+  if(val==='prev')currentPage=Math.max(1,currentPage-1);
+  else if(val==='next')currentPage=Math.min(total,currentPage+1);
+  else currentPage=parseInt(val,10);
+  deletingId=null;renderAll();
+});
+ $('#pageSizeSelect').addEventListener('change',function(){pageSize=parseInt(this.value,10);currentPage=1;deletingId=null;renderAll();});
+ $('#searchAll').addEventListener('input',function(){currentPage=1;deletingId=null;renderAll();});
+ $('#filterInstaller').addEventListener('change',function(){currentPage=1;deletingId=null;renderAll();});
+ $('#filterStatus').addEventListener('change',function(){currentPage=1;deletingId=null;renderAll();});
+
+function quickInstallDevice(id){
+  var devices=DB.devices();
+  for(var i=0;i<devices.length;i++){
+    if(devices[i].id===id){if(devices[i].installed){toast('Already installed','info',devices[i].serial);return;}devices[i].installed=true;devices[i].installedAt=Date.now();break;}
+  }
+  DB.saveDevices(devices);deletingId=null;renderAll();toast('Marked as installed','success');
+}
+
+/* ============================================================
+   EDIT MODAL
+============================================================ */
+function openEditModal(id){
+  var devices=DB.devices(),device=null;
+  for(var i=0;i<devices.length;i++){if(devices[i].id===id){device=devices[i];break;}}
+  if(!device)return;
+  $('#editDeviceId').value=device.id;$('#editSerial').value=device.serial;$('#editCluster').value=device.cluster||'';
+  $('#editStatus').value=device.installed?'installed':'collected';updateEditHint();$('#editModal').classList.add('open');
+}
+function closeEditModal(){$('#editModal').classList.remove('open');}
+function updateEditHint(){
+  var device=DB.devices().find(function(d){return d.id===$('#editDeviceId').value;});
+  var hint=$('#editInstalledHint');
+  if($('#editStatus').value==='installed'){hint.style.display='block';hint.textContent=device&&device.installedAt?'Previously installed: '+fmtFull(device.installedAt):'Will be marked as installed now.';}
+  else{hint.style.display='none';}
+}
+ $('#editStatus').addEventListener('change',updateEditHint);
+function saveEdit(){
+  var id=$('#editDeviceId').value,serial=$('#editSerial').value.trim(),cluster=$('#editCluster').value.trim(),status=$('#editStatus').value;
+  if(!serial){toast('IMEI cannot be empty','error');return;}
+  var devices=DB.devices();var conflict=devices.find(function(d){return d.serial===serial&&d.id!==id;});
+  if(conflict){toast('IMEI already exists','error','Used by '+(conflict.collectedByName||'another record'));return;}
+  for(var i=0;i<devices.length;i++){
+    if(devices[i].id===id){
+      devices[i].serial=serial;devices[i].cluster=cluster;
+      var wasInstalled=devices[i].installed;devices[i].installed=(status==='installed');
+      if(status==='installed'&&!wasInstalled)devices[i].installedAt=Date.now();
+      if(status==='collected')devices[i].installedAt=null;break;
+    }
+  }
+  DB.saveDevices(devices);closeEditModal();renderAll();toast('Record updated','success','IMEI: '+serial);
+}
+ $('#editModalClose').onclick=closeEditModal;$('#editCancelBtn').onclick=closeEditModal;$('#editSaveBtn').onclick=saveEdit;
+ $('#editModal').addEventListener('click',function(e){if(e.target===this)closeEditModal();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&$('#editModal').classList.contains('open'))closeEditModal();});
+
+/* ============================================================
+   DELETE
+============================================================ */
+function deleteDevice(id){
+  var devices=DB.devices(),deleted=null,newDevices=[];
+  for(var i=0;i<devices.length;i++){if(devices[i].id===id){deleted=devices[i];}else{newDevices.push(devices[i]);}}
+  if(!deleted)return;DB.saveDevices(newDevices);deletingId=null;renderAll();toast('Record deleted','success','Removed IMEI: '+deleted.serial);
+}
+
+/* ============================================================
+   PROFILE
+============================================================ */
+function renderProfile(){
+  var devs=visibleDevices();
+  var myCount=currentUser.role==='installer'?devs.length:devs.filter(function(d){return d.collectedBy===currentUser.id;}).length;
+  var myInstalled=devs.filter(function(d){return d.collectedBy===currentUser.id&&d.installed;}).length;
+  $('#profileInfo').innerHTML='<table style="font-size:13px;width:100%"><tr><td style="color:var(--airtel-gray);width:140px;padding:8px 0">Full Name</td><td><strong>'+currentUser.fullName+'</strong></td></tr><tr><td style="color:var(--airtel-gray);padding:8px 0">Contact</td><td>'+currentUser.contact+'</td></tr><tr><td style="color:var(--airtel-gray);padding:8px 0">Role</td><td><span class="badge green" style="text-transform:capitalize">'+currentUser.role+'</span></td></tr><tr><td style="color:var(--airtel-gray);padding:8px 0">Cluster</td><td>'+currentUser.cluster+'</td></tr><tr><td style="color:var(--airtel-gray);padding:8px 0">Member Since</td><td>'+new Date(currentUser.createdAt).toLocaleDateString('en-GB')+'</td></tr></table>';
+  $('#profileStats').innerHTML='<div class="stats-grid" style="margin:0"><div class="stat-card red-card"><div class="stat-icon red">◉</div><div class="stat-info"><div class="num">'+myCount+'</div><div class="lbl">Devices I Collected</div></div></div><div class="stat-card green-card"><div class="stat-icon green">✓</div><div class="stat-info"><div class="num">'+myInstalled+'</div><div class="lbl">Devices I Installed</div></div></div><div class="stat-card amber-card"><div class="stat-icon amber">⚕</div><div class="stat-info"><div class="num">'+devs.length+'</div><div class="lbl">Total in Cluster</div></div></div></div>';
+}
+
+/* ============================================================
+   EXPORT
+============================================================ */
+function devicesToRows(devs){return devs.map(function(d){return {'IMEI Number':d.serial,'Cluster':d.cluster||'','Status':d.installed?'Installed':'Collected','Collected By':d.collectedByName||'','Collected At':d.collectedAt?new Date(d.collectedAt).toLocaleString('en-GB'):'',  'Installed At':d.installedAt?new Date(d.installedAt).toLocaleString('en-GB'):'--'};});}
+function exportExcel(devs,filename){var ws=XLSX.utils.json_to_sheet(devicesToRows(devs));var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'ODU IMEIs');XLSX.writeFile(wb,filename);}
+function exportPdf(devs,filename,title){
+  var jsPDF=window.jspdf.jsPDF;var doc=new jsPDF({orientation:'landscape'});
+  doc.setFillColor(228,0,0);doc.rect(0,0,doc.internal.pageSize.getWidth(),22,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(14);doc.setFont('helvetica','bold');doc.text('Airtel Zambia — ODU Collector',12,14);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text(title+'  |  Generated: '+new Date().toLocaleString('en-GB')+'  |  By: '+currentUser.fullName,12,19);
+  var rows=devs.map(function(d){return [d.serial,d.cluster||'',d.installed?'Installed':'Collected',d.collectedByName||'',d.collectedAt?new Date(d.collectedAt).toLocaleString('en-GB'):'',d.installedAt?new Date(d.installedAt).toLocaleString('en-GB'):'—'];});
+  doc.autoTable({head:[['IMEI','Cluster','Status','Collected By','Collected At','Installed At']],body:rows,startY:28,styles:{fontSize:7.5},headStyles:{fillColor:[228,0,0]},alternateRowStyles:{fillColor:[254,242,242]}});
+  doc.save(filename);
+}
+ $('#exportAllExcel').onclick=function(){exportExcel(getFilteredDevices(),'collected_imeis.xlsx');};
+ $('#exportAllPdf').onclick=function(){exportPdf(getFilteredDevices(),'collected_imeis.pdf','Collected IMEIs');};
+</script>
+</body>
+</html>
