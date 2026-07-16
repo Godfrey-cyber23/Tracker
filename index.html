@@ -548,13 +548,11 @@ function uid() { return 'id' + Date.now().toString(36) + Math.random().toString(
    All methods are async. Errors propagate to callers.
 ================================================================ */
 var DB = {
-  /* ---- Helper to ensure db is ready ---- */
   _ready: function() {
     if (!db) return Promise.reject(new Error('Firestore not initialized'));
     return Promise.resolve();
   },
 
-  /* --- Users --- */
   getUserByContact: function(contact) {
     return this._ready().then(function() {
       return db.collection('users').where('contact', '==', contact).limit(1).get()
@@ -589,7 +587,6 @@ var DB = {
     });
   },
 
-  /* --- Devices --- */
   getDevicesForScope: function() {
     return this._ready().then(function() {
       var query;
@@ -1415,7 +1412,48 @@ function seedDemoData() {
     return Promise.resolve();
   }
   return DB.hasAnyUsers().then(function(hasUsers) {
-    // ... rest of function unchanged
+    if (hasUsers) {
+      hideLoading();
+      return null;
+    }
+
+    var users = [
+      { fullName: 'John Banda', contact: '0977123456', role: 'installer', cluster: 'Lusaka Central', password: '1234' },
+      { fullName: 'Mary Phiri', contact: '0966111222', role: 'installer', cluster: 'Lusaka Central', password: '1234' },
+      { fullName: 'Peter Tembo', contact: '0955333444', role: 'supervisor', cluster: 'Lusaka Central', password: '1234' },
+      { fullName: 'Jane Bwalya', contact: '0977888999', role: 'installer', cluster: 'Kitwe North', password: '1234' }
+    ];
+
+    var userPromises = users.map(function(u) {
+      return DB.createUser(u).then(function(id) { u.id = id; return u; });
+    });
+
+    return Promise.all(userPromises).then(function(createdUsers) {
+      var now = Date.now();
+      var batch = db.batch();
+      var devicesRef = db.collection('devices');
+
+      for (var i = 0; i < 47; i++) {
+        var inst = createdUsers[i % 2];
+        var isInstalled = (i % 3 === 0);
+        var docRef = devicesRef.doc();
+        batch.set(docRef, {
+          serial: '860480' + (100000000 + i).toString().slice(0, 9),
+          cluster: inst.cluster,
+          collectedBy: inst.id,
+          collectedByName: inst.fullName,
+          collectedAt: now - i * 3600000,
+          installed: isInstalled,
+          installedAt: isInstalled ? (now - i * 3600000 + 1800000) : null,
+          createdAt: now - i * 3600000
+        });
+      }
+
+      return batch.commit().then(function() {
+        hideLoading();
+        toast('Demo data created', 'info', '4 users and 47 devices. Login with 0977123456 / 1234');
+      });
+    });
   }).catch(function(err) {
     hideLoading();
     console.error('Seed error:', err);
@@ -1438,10 +1476,19 @@ function seedDemoData() {
   }
 
   showLoading();
+
+  // Safety timeout: force‑hide the loading overlay after 5 seconds if it’s still visible
+  var safetyTimer = setTimeout(function() {
+    if ($('#loadingOverlay').classList.contains('active')) {
+      hideLoading();
+      console.warn('Loading overlay force‑hidden after timeout');
+    }
+  }, 5000);
+
   initFirebase(FIREBASE_CONFIG).then(function() {
+    clearTimeout(safetyTimer);
     hideLoading();
 
-    // Ensure db is actually set
     if (!db) {
       throw new Error('Firestore instance is null after initialization');
     }
@@ -1467,6 +1514,7 @@ function seedDemoData() {
       seedDemoData().then(function() { showAuth(); });
     }
   }).catch(function(err) {
+    clearTimeout(safetyTimer);
     hideLoading();
     console.error('Firebase init error:', err);
     var errDiv = document.createElement('div');
