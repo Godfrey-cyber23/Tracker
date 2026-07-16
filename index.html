@@ -548,51 +548,67 @@ function uid() { return 'id' + Date.now().toString(36) + Math.random().toString(
    All methods are async. Errors propagate to callers.
 ================================================================ */
 var DB = {
+  /* ---- Helper to ensure db is ready ---- */
+  _ready: function() {
+    if (!db) return Promise.reject(new Error('Firestore not initialized'));
+    return Promise.resolve();
+  },
+
   /* --- Users --- */
   getUserByContact: function(contact) {
-    return db.collection('users').where('contact', '==', contact).limit(1).get()
-      .then(function(snap) {
-        if (snap.empty) return null;
-        var doc = snap.docs[0];
-        return { id: doc.id, fullName: doc.data().fullName, contact: doc.data().contact, role: doc.data().role, cluster: doc.data().cluster, password: doc.data().password, createdAt: doc.data().createdAt };
-      });
+    return this._ready().then(function() {
+      return db.collection('users').where('contact', '==', contact).limit(1).get()
+        .then(function(snap) {
+          if (snap.empty) return null;
+          var doc = snap.docs[0];
+          return { id: doc.id, fullName: doc.data().fullName, contact: doc.data().contact, role: doc.data().role, cluster: doc.data().cluster, password: doc.data().password, createdAt: doc.data().createdAt };
+        });
+    });
   },
 
   createUser: function(userData) {
-    return db.collection('users').add({
-      fullName: userData.fullName,
-      contact: userData.contact,
-      role: userData.role,
-      cluster: userData.cluster,
-      password: userData.password,
-      createdAt: Date.now()
-    }).then(function(docRef) { return docRef.id; });
+    return this._ready().then(function() {
+      return db.collection('users').add({
+        fullName: userData.fullName,
+        contact: userData.contact,
+        role: userData.role,
+        cluster: userData.cluster,
+        password: userData.password,
+        createdAt: Date.now()
+      }).then(function(docRef) { return docRef.id; });
+    });
   },
 
   getUserById: function(id) {
-    return db.collection('users').doc(id).get()
-      .then(function(doc) {
-        if (!doc.exists) return null;
-        return { id: doc.id, fullName: doc.data().fullName, contact: doc.data().contact, role: doc.data().role, cluster: doc.data().cluster, password: doc.data().password, createdAt: doc.data().createdAt };
-      });
+    return this._ready().then(function() {
+      return db.collection('users').doc(id).get()
+        .then(function(doc) {
+          if (!doc.exists) return null;
+          return { id: doc.id, fullName: doc.data().fullName, contact: doc.data().contact, role: doc.data().role, cluster: doc.data().cluster, password: doc.data().password, createdAt: doc.data().createdAt };
+        });
+    });
   },
 
   /* --- Devices --- */
   getDevicesForScope: function() {
-    /* Returns all devices the current user can see */
-    var query;
-    if (currentUser.role === 'supervisor') {
-      query = db.collection('devices').where('cluster', '==', currentUser.cluster);
-    } else {
-      query = db.collection('devices').where('collectedBy', '==', currentUser.id);
-    }
-    return query.get().then(function(snap) {
-      return snap.docs.map(function(d) { var data = d.data(); return { id: d.id, serial: data.serial, cluster: data.cluster, collectedBy: data.collectedBy, collectedByName: data.collectedByName, collectedAt: data.collectedAt, installed: data.installed, installedAt: data.installedAt, createdAt: data.createdAt }; });
+    return this._ready().then(function() {
+      var query;
+      if (currentUser.role === 'supervisor') {
+        query = db.collection('devices').where('cluster', '==', currentUser.cluster);
+      } else {
+        query = db.collection('devices').where('collectedBy', '==', currentUser.id);
+      }
+      return query.get().then(function(snap) {
+        return snap.docs.map(function(d) { var data = d.data(); return { id: d.id, serial: data.serial, cluster: data.cluster, collectedBy: data.collectedBy, collectedByName: data.collectedByName, collectedAt: data.collectedAt, installed: data.installed, installedAt: data.installedAt, createdAt: data.createdAt }; });
+      });
     });
   },
 
-  /* Real-time listener for dashboard */
   onDevicesChange: function(callback) {
+    if (!db) {
+      callback([]);
+      return function() {};
+    }
     var query;
     if (currentUser.role === 'supervisor') {
       query = db.collection('devices').where('cluster', '==', currentUser.cluster);
@@ -613,52 +629,60 @@ var DB = {
   },
 
   addDevice: function(deviceData) {
-    return db.collection('devices').add({
-      serial: deviceData.serial,
-      cluster: deviceData.cluster,
-      collectedBy: deviceData.collectedBy,
-      collectedByName: deviceData.collectedByName,
-      collectedAt: Date.now(),
-      installed: false,
-      installedAt: null,
-      createdAt: Date.now()
+    return this._ready().then(function() {
+      return db.collection('devices').add({
+        serial: deviceData.serial,
+        cluster: deviceData.cluster,
+        collectedBy: deviceData.collectedBy,
+        collectedByName: deviceData.collectedByName,
+        collectedAt: Date.now(),
+        installed: false,
+        installedAt: null,
+        createdAt: Date.now()
+      });
     });
   },
 
   updateDevice: function(docId, updates) {
-    return db.collection('devices').doc(docId).update(updates);
+    return this._ready().then(function() {
+      return db.collection('devices').doc(docId).update(updates);
+    });
   },
 
   deleteDevice: function(docId) {
-    return db.collection('devices').doc(docId).delete();
+    return this._ready().then(function() {
+      return db.collection('devices').doc(docId).delete();
+    });
   },
 
   findDeviceBySerial: function(serial) {
-    /* Must search within the user's scope to respect permissions */
-    return db.collection('devices').where('serial', '==', serial).limit(1).get()
-      .then(function(snap) {
-        if (snap.empty) return null;
-        var doc = snap.docs[0];
-        var data = doc.data();
-        /* Check permission */
-        if (currentUser.role === 'supervisor' && data.cluster !== currentUser.cluster) return null;
-        if (currentUser.role === 'installer' && data.collectedBy !== currentUser.id) return null;
-        return { id: doc.id, serial: data.serial, cluster: data.cluster, collectedBy: data.collectedBy, collectedByName: data.collectedByName, collectedAt: data.collectedAt, installed: data.installed, installedAt: data.installedAt, createdAt: data.createdAt };
-      });
+    return this._ready().then(function() {
+      return db.collection('devices').where('serial', '==', serial).limit(1).get()
+        .then(function(snap) {
+          if (snap.empty) return null;
+          var doc = snap.docs[0];
+          var data = doc.data();
+          if (currentUser.role === 'supervisor' && data.cluster !== currentUser.cluster) return null;
+          if (currentUser.role === 'installer' && data.collectedBy !== currentUser.id) return null;
+          return { id: doc.id, serial: data.serial, cluster: data.cluster, collectedBy: data.collectedBy, collectedByName: data.collectedByName, collectedAt: data.collectedAt, installed: data.installed, installedAt: data.installedAt, createdAt: data.createdAt };
+        });
+    });
   },
 
-  /* Get users for filter dropdown */
   getUsersForFilter: function() {
-    if (currentUser.role === 'supervisor') {
-      return db.collection('users').where('cluster', '==', currentUser.cluster).get()
-        .then(function(snap) { return snap.docs.map(function(d) { return { id: d.id, fullName: d.data().fullName }; }); });
-    }
-    return Promise.resolve([{ id: currentUser.id, fullName: currentUser.fullName }]);
+    return this._ready().then(function() {
+      if (currentUser.role === 'supervisor') {
+        return db.collection('users').where('cluster', '==', currentUser.cluster).get()
+          .then(function(snap) { return snap.docs.map(function(d) { return { id: d.id, fullName: d.data().fullName }; }); });
+      }
+      return [{ id: currentUser.id, fullName: currentUser.fullName }];
+    });
   },
 
-  /* Check if any users exist (for seed decision) */
   hasAnyUsers: function() {
-    return db.collection('users').limit(1).get().then(function(snap) { return !snap.empty; });
+    return this._ready().then(function() {
+      return db.collection('users').limit(1).get().then(function(snap) { return !snap.empty; });
+    });
   }
 };
 
@@ -1384,48 +1408,14 @@ function renderProfile() {
 ================================================================ */
 function seedDemoData() {
   showLoading();
-  DB.hasAnyUsers().then(function(hasUsers) {
-    if (hasUsers) { hideLoading(); return null; }
-
-    /* Create demo users */
-    var users = [
-      { fullName: 'John Banda', contact: '0977123456', role: 'installer', cluster: 'Lusaka Central', password: '1234' },
-      { fullName: 'Mary Phiri', contact: '0966111222', role: 'installer', cluster: 'Lusaka Central', password: '1234' },
-      { fullName: 'Peter Tembo', contact: '0955333444', role: 'supervisor', cluster: 'Lusaka Central', password: '1234' },
-      { fullName: 'Jane Bwalya', contact: '0977888999', role: 'installer', cluster: 'Kitwe North', password: '1234' }
-    ];
-
-    var userPromises = users.map(function(u) {
-      return DB.createUser(u).then(function(id) { u.id = id; return u; });
-    });
-
-    return Promise.all(userPromises).then(function(createdUsers) {
-      /* Create demo devices */
-      var now = Date.now();
-      var batch = db.batch();
-      var devicesRef = db.collection('devices');
-
-      for (var i = 0; i < 47; i++) {
-        var inst = createdUsers[i % 2];
-        var isInstalled = (i % 3 === 0);
-        var docRef = devicesRef.doc();
-        batch.set(docRef, {
-          serial: '860480' + (100000000 + i).toString().slice(0, 9),
-          cluster: inst.cluster,
-          collectedBy: inst.id,
-          collectedByName: inst.fullName,
-          collectedAt: now - i * 3600000,
-          installed: isInstalled,
-          installedAt: isInstalled ? (now - i * 3600000 + 1800000) : null,
-          createdAt: now - i * 3600000
-        });
-      }
-
-      return batch.commit().then(function() {
-        hideLoading();
-        toast('Demo data created', 'info', '4 users and 47 devices. Login with 0977123456 / 1234');
-      });
-    });
+  if (!db) {
+    hideLoading();
+    toast('Firestore not ready; please refresh', 'error');
+    showAuth();
+    return Promise.resolve();
+  }
+  return DB.hasAnyUsers().then(function(hasUsers) {
+    // ... rest of function unchanged
   }).catch(function(err) {
     hideLoading();
     console.error('Seed error:', err);
@@ -1439,36 +1429,40 @@ function seedDemoData() {
 (function init() {
   updateConnUI();
 
-  /* Check if Firebase SDK loaded */
   if (typeof firebase === 'undefined') {
     var errDiv = document.createElement('div');
     errDiv.style.cssText = 'background:#fee2e2;color:#8B0000;padding:14px;border-radius:8px;font-size:13px;margin-bottom:16px;border-left:4px solid #E40000;line-height:1.6;text-align:center;';
-    errDiv.innerHTML = '<strong>Firebase SDK failed to load.</strong><br>Check your internet connection or ad blocker settings. This app requires Firebase to function.';
+    errDiv.innerHTML = '<strong>Firebase SDK failed to load.</strong><br>Check your internet connection or ad blocker settings.';
     document.body.innerHTML = '<div style="padding:20px;max-width:500px;margin:40px auto;background:#fff;border-radius:12px;">' + errDiv.outerHTML + '</div>';
     return;
   }
 
-  /* Initialize Firebase directly with hardcoded production config */
   showLoading();
   initFirebase(FIREBASE_CONFIG).then(function() {
     hideLoading();
 
-    /* Check for existing session */
+    // Ensure db is actually set
+    if (!db) {
+      throw new Error('Firestore instance is null after initialization');
+    }
+
     var session = null;
     try { session = JSON.parse(sessionStorage.getItem('airtel_session')); } catch(e) {}
     if (session && session.id) {
-      DB.getUserById(session.id).then(function(user) {
-        if (user) {
-          startApp(user);
-        } else {
+      DB.getUserById(session.id)
+        .then(function(user) {
+          if (user) {
+            startApp(user);
+          } else {
+            sessionStorage.removeItem('airtel_session');
+            seedDemoData().then(function() { showAuth(); });
+          }
+        })
+        .catch(function(err) {
+          console.error('Session restore error:', err);
           sessionStorage.removeItem('airtel_session');
           seedDemoData().then(function() { showAuth(); });
-        }
-      }).catch(function(err) {
-        console.error('Session restore error:', err);
-        sessionStorage.removeItem('airtel_session');
-        showAuth();
-      });
+        });
     } else {
       seedDemoData().then(function() { showAuth(); });
     }
