@@ -915,22 +915,57 @@ function renderTrendChart(devs) {
 function startScanner() {
   if (scanMode !== 'scan') return;
   $('#cameraError').style.display = 'none';
-  var config = { fps: 30, aspectRatio: 4 / 3, experimentalFeatures: { useBarCodeDetectorIfSupported: true } };
-  var cameraConfig = { facingMode: 'environment' };
+
+  // High‑performance configuration
+  var config = {
+    fps: 60,                        // Faster frame processing
+    aspectRatio: 4 / 3,
+    experimentalFeatures: {
+      useBarCodeDetectorIfSupported: true   // Uses native browser detector if available
+    }
+  };
+
+  // Limit to barcode formats to reduce false positives and speed up decoding
+  if (typeof Html5QrcodeSupportedFormats !== 'undefined') {
+    config.formatsToSupport = [
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.CODE_93,
+      Html5QrcodeSupportedFormats.QR_CODE  // Keep QR as fallback
+    ];
+  }
+
+  // Request highest possible resolution for better detail
+  var cameraConfig = {
+    facingMode: 'environment',
+    width: { ideal: 1920 },
+    height: { ideal: 1080 }
+  };
 
   if (html5QrCode) {
     try {
-      html5QrCode.start(cameraConfig, config, onScanSuccess).then(boostResolution).catch(showCameraError);
+      html5QrCode.start(cameraConfig, config, onScanSuccess)
+        .then(boostResolution)
+        .catch(showCameraError);
       return;
-    } catch(e) { /* fall through to re-create */ }
+    } catch(e) { /* fall through to re‑create */ }
   }
+
   html5QrCode = new Html5Qrcode('qr-reader');
-  html5QrCode.start(cameraConfig, config, onScanSuccess).then(boostResolution).catch(showCameraError);
+  html5QrCode.start(cameraConfig, config, onScanSuccess)
+    .then(boostResolution)
+    .catch(showCameraError);
 }
 
 function boostResolution() {
   if (!html5QrCode) return;
-  html5QrCode.applyVideoConstraints({ width: { ideal: 1920 }, height: { ideal: 1080 } }).catch(function() {});
+  // Apply the high‑resolution constraints again (some devices may need this)
+  html5QrCode.applyVideoConstraints({
+    width: { ideal: 1920 },
+    height: { ideal: 1080 }
+  }).catch(function() { /* ignore if not supported */ });
 }
 
 function showCameraError(err) {
