@@ -196,6 +196,11 @@ tr.row-collected:hover{background:#fef3c7}
 #qr-reader__scan_region img{display:none!important}
 .scan-overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.45) inset;z-index:10}
 .scan-overlay::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:95%;height:85%;border:2px solid rgba(255,255,255,.85);border-radius:10px;box-shadow:0 0 30px rgba(228,0,0,.4)}
+.scan-overlay.success::before {
+  border-color: #4ade80 !important;
+  box-shadow: 0 0 30px rgba(74, 222, 128, 0.8) !important;
+  transition: border-color 0.1s, box-shadow 0.1s;
+}
 .scan-line{position:absolute;left:3%;width:94%;height:2px;background:linear-gradient(90deg,transparent,var(--red-500),transparent);box-shadow:0 0 12px var(--red-500),0 0 30px rgba(228,0,0,.3);animation:scanMove 1.8s linear infinite;z-index:11}
 @keyframes scanMove{0%{top:10%}50%{top:90%}100%{top:10%}}
 .ultra-badge{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(228,0,0,.85);color:#fff;font-size:9px;font-weight:800;letter-spacing:.12em;padding:4px 12px;border-radius:20px;z-index:20;pointer-events:none;text-transform:uppercase;backdrop-filter:blur(4px);display:flex;align-items:center;gap:5px}
@@ -1008,26 +1013,68 @@ function renderTrendChart(devs) {
 function startScanner() {
   if (scanMode !== 'scan') return;
   $('#cameraError').style.display = 'none';
-  var config = { fps: 60, aspectRatio: 4 / 3, experimentalFeatures: { useBarCodeDetectorIfSupported: true } };
-  if (typeof Html5QrcodeSupportedFormats !== 'undefined') {
-    config.formatsToSupport = [Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8, Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39, Html5QrcodeSupportedFormats.CODE_93, Html5QrcodeSupportedFormats.QR_CODE];
-  }
-  var cameraConfig = { facingMode: 'environment' };
-  if (html5QrCode) {
-    try { html5QrCode.start(cameraConfig, config, onScanSuccess).then(boostResolution).catch(showCameraError); return; } catch(e) {}
-  }
-  html5QrCode = new Html5Qrcode('qr-reader');
-  html5QrCode.start(cameraConfig, config, onScanSuccess).then(boostResolution).catch(showCameraError);
-}
 
-function boostResolution() {
-  if (!html5QrCode) return;
-  html5QrCode.applyVideoConstraints({ width: { ideal: 1920 }, height: { ideal: 1080 } }).catch(function() {});
+  var cameraConfig = { facingMode: 'environment' };
+
+  var config = {
+    fps: 15, 
+    aspectRatio: 4 / 3,
+    experimentalFeatures: {
+      useBarCodeDetectorIfSupported: true 
+    },
+
+    qrbox: function(viewfinderWidth, viewfinderHeight) {
+      var minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+      var boxSize = Math.floor(minEdge * 0.7);
+      return { width: boxSize, height: boxSize };
+    },
+
+    videoConstraints: {
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+      facingMode: 'environment'
+    }
+  };
+
+  if (typeof Html5QrcodeSupportedFormats !== 'undefined') {
+    config.formatsToSupport = [
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.CODE_93,
+      Html5QrcodeSupportedFormats.QR_CODE
+    ];
+  }
+
+  if (html5QrCode) {
+    try { 
+      html5QrCode.start(cameraConfig, config, onScanSuccess)
+        .catch(showCameraError); 
+      return; 
+    } catch(e) { /* fall through to re-create */ }
+  }
+
+  html5QrCode = new Html5Qrcode('qr-reader');
+  html5QrCode.start(cameraConfig, config, onScanSuccess)
+    .catch(showCameraError);
 }
 
 function showCameraError(err) {
+  var msg = err.toString();
+  var friendlyMsg = msg;
+  
+  // User-friendly error messages
+  if (msg.includes('NotAllowedError') || msg.includes('Permission denied')) {
+    friendlyMsg = 'Camera access was blocked. Please enable camera permissions in your browser settings to scan barcodes.';
+  } else if (msg.includes('NotFoundError') || msg.includes('DevicesNotFoundError')) {
+    friendlyMsg = 'No camera found on this device. Please use Manual Entry.';
+  } else if (msg.includes('NotReadableError')) {
+    friendlyMsg = 'Camera is already in use by another app. Please close it and try again.';
+  }
+
   $('#cameraError').style.display = 'block';
-  $('#cameraError').innerHTML = '<strong>Camera Error</strong><br>' + err + '. Use Manual Entry instead.';
+  $('#cameraError').innerHTML = '<strong>Camera Error</strong><br>' + friendlyMsg;
 }
 
 function stopScanner() {
@@ -1036,6 +1083,37 @@ function stopScanner() {
     try { html5QrCode.clear(); } catch(e) {}
     html5QrCode = null;
   }
+}
+
+function onScanSuccess(decodedText) {
+  var text = decodedText.trim();
+  if (!text) return;
+  
+  // Prevent duplicates
+  if (pendingScans.some(function(p) { return p.serial === text; })) return;
+
+  // Visual success feedback (Flash green)
+  var overlay = document.querySelector('.scan-overlay');
+  if (overlay) {
+    overlay.classList.add('success');
+    setTimeout(function() { overlay.classList.remove('success'); }, 300);
+  }
+
+  var localMatch = cachedDevices.find(function(d) { return d.serial === text; });
+  
+  if (localMatch) {
+    if (localMatch.installed) {
+      toast('Already installed', 'info', text + ' — by ' + localMatch.collectedByName);
+      return;
+    }
+    pendingScans.unshift({ serial: text, type: 'install', owner: currentUser.id });
+    beepLow();
+  } else {
+    pendingScans.unshift({ serial: text, type: 'new', owner: currentUser.id });
+    beep();
+  }
+  
+  renderPending();
 }
 
  $('#torchBtn').onclick = function(e) {
@@ -1048,22 +1126,6 @@ function stopScanner() {
     }).catch(function() { toast('Flashlight not supported on this device', 'error'); torchOn = false; });
   } catch(err) { toast('Flashlight not supported', 'error'); torchOn = false; }
 };
-
-function onScanSuccess(decodedText) {
-  var text = decodedText.trim();
-  if (!text) return;
-  if (pendingScans.some(function(p) { return p.serial === text; })) return;
-  var localMatch = cachedDevices.find(function(d) { return d.serial === text; });
-  if (localMatch) {
-    if (localMatch.installed) { toast('Already installed', 'info', text + ' — by ' + localMatch.collectedByName); return; }
-    pendingScans.unshift({ serial: text, type: 'install', owner: currentUser.id });
-    beepLow();
-  } else {
-    pendingScans.unshift({ serial: text, type: 'new', owner: currentUser.id });
-    beep();
-  }
-  renderPending();
-}
 
 function renderPending() {
   if (pendingScans.length === 0) {
