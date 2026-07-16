@@ -273,6 +273,40 @@ tr.row-collected:hover{background:#fef3c7}
   .stats-grid{gap:6px}.stat-card{padding:8px;gap:6px}.stat-icon{width:30px;height:30px;font-size:14px}.stat-info .num{font-size:15px}.stat-info .lbl{font-size:9px}
   .toast-wrap{bottom:90px;width:calc(100% - 24px)}
 }
+/* ================================================================
+   TOUR GUIDE
+================================================================ */
+.tour-overlay { position: fixed; inset: 0; z-index: 9998; pointer-events: none; display: none; }
+.tour-overlay.active { display: block; }
+.tour-spotlight {
+  position: absolute;
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: 0 0 0 9999px rgba(20, 0, 0, 0.75);
+  transition: all 0.3s ease-in-out;
+  border: 2px solid var(--red-400);
+  pointer-events: none;
+}
+.tour-tooltip {
+  position: absolute;
+  background: #fff;
+  padding: 20px;
+  border-radius: 14px;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  z-index: 9999;
+  pointer-events: auto;
+  transition: all 0.3s ease-in-out;
+  border-top: 4px solid var(--red-500);
+}
+.tour-tooltip h4 { color: var(--red-700); margin-bottom: 8px; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+.tour-tooltip p { font-size: 13px; color: #444; line-height: 1.6; margin-bottom: 20px; }
+.tour-btns { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.tour-progress { font-size: 11px; color: var(--airtel-gray); font-weight: 600; background: var(--red-50); padding: 4px 8px; border-radius: 20px; }
+.tour-actions { display: flex; gap: 8px; }
+.tour-skip { background: transparent; color: var(--airtel-gray); font-size: 12px; font-weight: 600; cursor: pointer; padding: 8px 12px; border-radius: 8px; transition: .15s; }
+.tour-skip:hover { background: var(--red-50); color: var(--red-600); }
 </style>
 </head>
 <body>
@@ -349,7 +383,6 @@ tr.row-collected:hover{background:#fef3c7}
     <div style="flex:1"></div>
     <div class="nav-section">Account</div>
     <div class="nav-item" data-view="profile"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> Profile</div>
-    <div class="nav-item" data-view="about"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> About App</div>
     <div class="nav-item" id="logoutBtn"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Sign Out</div>
   </aside>
 
@@ -357,7 +390,6 @@ tr.row-collected:hover{background:#fef3c7}
     <div class="m-nav-item active" data-view="dashboard"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg> Home</div>
     <div class="m-nav-item" data-view="add"><svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="7" y1="12" x2="17" y2="12"></line></svg> Scan</div>
     <div class="m-nav-item" data-view="all"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg> List</div>
-    <div class="m-nav-item" data-view="about"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> Info</div>
     <div class="m-nav-item" data-view="profile"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> Me</div>
   </nav>
 
@@ -460,29 +492,28 @@ tr.row-collected:hover{background:#fef3c7}
       </section>
 
       <section class="view" id="view-profile">
-        <div class="panel" style="max-width:520px"><div class="panel-head"><h3>My Profile</h3></div><div id="profileInfo"></div></div>
-        <div class="panel" style="max-width:520px">
-          <div class="panel-head"><h3>My Summary</h3><button class="btn btn-red btn-sm" id="logoutBtnMobile">Sign Out</button></div>
-          <div id="profileStats"></div>
-        </div>
-        <div class="panel" style="max-width:520px">
-          <div class="panel-head"><h3>System Info</h3></div>
-          <p style="font-size:12px;color:var(--airtel-gray);margin-bottom:12px">Project: <strong id="profileProjectId">—</strong> &nbsp;|&nbsp; Status: <strong id="profileConnStatus">—</strong></p>
-        </div>
-      </section>
-
-      <section class="view" id="view-about">
-        <div class="panel" style="max-width:800px">
-          <div class="panel-head"><h3>About ODU Collector</h3></div>
-          <div style="font-size:14px;line-height:1.7;color:#444">
-            <p><strong>Version:</strong> 2.0.0</p>
-            <p><strong>Project:</strong> Airtel Zambia 5G WiFi Router IMEI Collection</p>
-            <p style="margin-top:12px">This application is designed to streamline the collection and installation tracking of ODU (Outdoor Unit) 5G WiFi routers. Field installers can scan or manually enter IMEI numbers, which are then synced in real-time to Firestore.</p>
-            <p style="margin-top:12px">Supervisors have an overarching view of all devices collected within their assigned cluster, allowing for seamless monitoring of installation progress.</p>
-            <p style="margin-top:20px;font-size:12px;color:#888">&copy; 2024 Airtel Zambia. All rights reserved.</p>
-          </div>
-        </div>
-      </section>
+  <div class="panel" style="max-width:520px"><div class="panel-head"><h3>My Profile</h3></div><div id="profileInfo"></div></div>
+  <div class="panel" style="max-width:520px">
+    <div class="panel-head"><h3>My Summary</h3><button class="btn btn-red btn-sm" id="logoutBtnMobile">Sign Out</button></div>
+    <div id="profileStats"></div>
+  </div>
+  <div class="panel" style="max-width:520px">
+    <div class="panel-head"><h3>System Info</h3></div>
+    <p style="font-size:12px;color:var(--airtel-gray);margin-bottom:12px">Project: <strong id="profileProjectId">—</strong> &nbsp;|&nbsp; Status: <strong id="profileConnStatus">—</strong></p>
+  </div>
+  
+  <!-- ABOUT APP MOVED HERE -->
+  <div class="panel" style="max-width:520px">
+    <div class="panel-head"><h3>About ODU Collector</h3></div>
+    <div style="font-size:14px;line-height:1.7;color:#444">
+      <p><strong>Version:</strong> 2.0.0</p>
+      <p><strong>Project:</strong> Airtel Zambia 5G WiFi Router IMEI Collection</p>
+      <p style="margin-top:12px">This application is designed to streamline the collection and installation tracking of ODU (Outdoor Unit) 5G WiFi routers. Field installers can scan or manually enter IMEI numbers, which are then synced in real-time to Firestore.</p>
+      <p style="margin-top:12px">Supervisors have an overarching view of all devices collected within their assigned cluster, allowing for seamless monitoring of installation progress.</p>
+      <p style="margin-top:20px;font-size:12px;color:#888">&copy; 2024 Airtel Zambia. All rights reserved.</p>
+    </div>
+  </div>
+</section>
     </div>
   </div>
 </div>
@@ -509,6 +540,22 @@ tr.row-collected:hover{background:#fef3c7}
 
 <div class="toast-wrap" id="toastWrap"></div>
 
+<!-- TOUR GUIDE -->
+<div class="tour-overlay" id="tourOverlay">
+  <div class="tour-spotlight" id="tourSpotlight"></div>
+  <div class="tour-tooltip" id="tourTooltip" style="display:none;">
+    <h4 id="tourTitle"></h4>
+    <p id="tourText"></p>
+    <div class="tour-btns">
+      <span class="tour-progress" id="tourProgress"></span>
+      <div class="tour-actions">
+        <button class="tour-skip" id="tourSkip">Skip Tour</button>
+        <button class="btn btn-outline btn-sm" id="tourPrev" style="display:none;">Back</button>
+        <button class="btn btn-red btn-sm" id="tourNext">Next</button>
+      </div>
+    </div>
+  </div>
+</div>
 <script>
 var FIREBASE_CONFIG = {
   apiKey: "AIzaSyAxFWJ_HNLCvYmYfaWLb1wnmls62KNw2Yw",
@@ -570,6 +617,111 @@ function beepLow() { try { if (!audioCtx) audioCtx = new (window.AudioContext ||
 function fmt(ts) { if (!ts) return '—'; var d = new Date(ts); return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
 function fmtFull(ts) { if (!ts) return '—'; return new Date(ts).toLocaleString('en-GB'); }
 function statusBadge(installed) { return installed ? '<span class="badge green">Installed</span>' : '<span class="badge amber">Collected</span>'; }
+
+/* ================================================================
+   TOUR GUIDE LOGIC
+================================================================ */
+var tourSteps = [
+  { target: '#statsGrid', title: '📊 Dashboard Overview', text: 'Welcome! Here you will see a live summary of all devices collected, installed, and pending in your cluster.' },
+  { target: '[data-view="add"]', title: '📷 Collect & Install', text: 'Click here to scan a new router barcode using your camera, or manually enter the IMEI number to collect it.' },
+  { target: '[data-view="all"]', title: '≡ All Devices', text: 'This is your master list. You can search, filter, export to Excel/PDF, and manage all your device records here.' },
+  { target: '[data-view="profile"]', title: '◉ Profile & Settings', text: 'View your personal stats, check system info, or securely log out of the app from this section.' }
+];
+var currentTourStep = 0;
+
+function startTour() {
+  currentTourStep = 0;
+  $('#tourOverlay').classList.add('active');
+  renderTourStep();
+}
+
+function renderTourStep() {
+  var step = tourSteps[currentTourStep];
+  
+  // Find the visible target (handles desktop sidebar vs mobile nav)
+  var elements = document.querySelectorAll(step.target);
+  var targetEl = Array.from(elements).find(function(e) { return e.offsetParent !== null; });
+  if (!targetEl) return nextTourStep(); // Skip if not visible
+
+  var rect = targetEl.getBoundingClientRect();
+  var spotlight = $('#tourSpotlight');
+  
+  // Position spotlight
+  spotlight.style.top = (rect.top - 6) + 'px';
+  spotlight.style.left = (rect.left - 6) + 'px';
+  spotlight.style.width = (rect.width + 12) + 'px';
+  spotlight.style.height = (rect.height + 12) + 'px';
+
+  // Setup tooltip content
+  $('#tourTitle').innerHTML = step.title;
+  $('#tourText').textContent = step.text;
+  $('#tourProgress').textContent = (currentTourStep + 1) + ' / ' + tourSteps.length;
+  
+  // Toggle button visibility
+  $('#tourPrev').style.display = currentTourStep === 0 ? 'none' : 'inline-flex';
+  $('#tourNext').textContent = currentTourStep === tourSteps.length - 1 ? 'Finish' : 'Next';
+
+  var tooltip = $('#tourTooltip');
+  tooltip.style.display = 'block';
+
+  // Wait for DOM to render tooltip dimensions, then position
+  setTimeout(function() {
+    var tipRect = tooltip.getBoundingClientRect();
+    var tipTop = rect.bottom + 15;
+    var tipLeft = rect.left + (rect.width / 2) - (tipRect.width / 2);
+
+    // Prevent going off bottom of screen
+    if (tipTop + tipRect.height > window.innerHeight - 20) {
+      tipTop = rect.top - tipRect.height - 15;
+    }
+    // Prevent going off top of screen
+    if (tipTop < 20) {
+      tipTop = 20;
+    }
+    // Prevent going off right of screen
+    if (tipLeft + tipRect.width > window.innerWidth - 20) {
+      tipLeft = window.innerWidth - tipRect.width - 20;
+    }
+    // Prevent going off left of screen
+    if (tipLeft < 20) {
+      tipLeft = 20;
+    }
+
+    tooltip.style.top = tipTop + 'px';
+    tooltip.style.left = tipLeft + 'px';
+  }, 50);
+}
+
+function nextTourStep() {
+  currentTourStep++;
+  if (currentTourStep >= tourSteps.length) return endTour();
+  renderTourStep();
+}
+
+function prevTourStep() {
+  currentTourStep--;
+  if (currentTourStep < 0) currentTourStep = 0;
+  renderTourStep();
+}
+
+function endTour() {
+  $('#tourOverlay').classList.remove('active');
+  $('#tourTooltip').style.display = 'none';
+  if (currentUser) {
+    localStorage.setItem('tour_completed_' + currentUser.id, 'true');
+  }
+}
+
+ $('#tourNext').onclick = nextTourStep;
+ $('#tourPrev').onclick = prevTourStep;
+ $('#tourSkip').onclick = endTour;
+
+// Recalculate spotlight position if window is resized during tour
+window.addEventListener('resize', function() {
+  if ($('#tourOverlay').classList.contains('active')) {
+    renderTourStep();
+  }
+});
 
 /* ================================================================
    PASSWORD HASHING
@@ -902,6 +1054,10 @@ function startApp(user) {
   $('#profileProjectId').textContent = FIREBASE_CONFIG.projectId;
   $('#profileConnStatus').textContent = isOnline ? 'Online' : 'Offline';
   navigate('dashboard');
+
+if (!localStorage.getItem('tour_completed_' + user.id)) {
+    setTimeout(startTour, 800); // Wait 800ms for dashboard to load
+  }
 }
 
 function logout() {
@@ -917,7 +1073,7 @@ function logout() {
  $('#logoutBtn').onclick = logout;
  $('#logoutBtnMobile').onclick = logout;
 
-var titles = { dashboard: 'Dashboard', add: 'Collect / Install', all: 'All Devices', profile: 'My Profile', about: 'About App' };
+var titles = { dashboard: 'Dashboard', add: 'Collect / Install', all: 'All Devices', profile: 'My Profile' };
 
 function navigate(view) {
   $$('.view').forEach(function(v) { v.classList.remove('active'); });
