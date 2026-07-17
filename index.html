@@ -5,7 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ODU Collector">
 <meta name="theme-color" content="#B30000">
+
+<!-- PWA Manifest & Icons -->
+<link rel="manifest" id="manifest-link">
+<link rel="apple-touch-icon" href="https://z-cdn-media.chatglm.cn/files/8f34f09f-bbc3-4ccc-82f5-23ce945592fa.png?auth_key=1883896355-c0247abc05e24d15bd46155b11d12055-0-d0987e2c420b192127d59bc546fe6e8a">
+<link rel="icon" type="image/png" href="https://z-cdn-media.chatglm.cn/files/8f34f09f-bbc3-4ccc-82f5-23ce945592fa.png?auth_key=1883896355-c0247abc05e24d15bd46155b11d12055-0-d0987e2c420b192127d59bc546fe6e8a">
+
 <title>Airtel Zambia — ODU Collector</title>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
@@ -1742,6 +1750,89 @@ function seedDemoData() {
     document.body.innerHTML = '<div style="padding:20px;max-width:500px;margin:40px auto;background:#fff;border-radius:12px;">' + errDiv.outerHTML + '</div>';
   });
 })();
+</script>
+<button id="installBtn" style="display:none;position:fixed;bottom:20px;right:20px;z-index:500;background:var(--red-500);color:#fff;padding:12px 16px;border-radius:25px;box-shadow:var(--shadow-lg);font-weight:600;font-size:14px;align-items:center;gap:8px;border:none;">
+   <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+   Install App
+</button>
+
+<script>
+// ================================================================
+// PWA INSTALLATION LOGIC
+// ================================================================
+const airtelLogoUrl = "https://z-cdn-media.chatglm.cn/files/8f34f09f-bbc3-4ccc-82f5-23ce945592fa.png?auth_key=1883896355-c0247abc05e24d15bd46155b11d12055-0-d0987e2c420b192127d59bc546fe6e8a";
+
+// 1. Generate manifest.json dynamically
+const manifest = {
+  name: "Airtel Zambia — ODU Collector",
+  short_name: "ODU Collector",
+  description: "Airtel Zambia — 5G WiFi Router IMEI Collection",
+  start_url: ".",
+  display: "standalone",
+  background_color: "#ffffff",
+  theme_color: "#B30000",
+  icons: [
+    {
+      src: airtelLogoUrl,
+      sizes: "192x192",
+      type: "image/png",
+      purpose: "any maskable"
+    },
+    {
+      src: airtelLogoUrl,
+      sizes: "512x512",
+      type: "image/png",
+      purpose: "any maskable"
+    }
+  ]
+};
+const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+const manifestURL = URL.createObjectURL(manifestBlob);
+document.getElementById('manifest-link').setAttribute('href', manifestURL);
+
+// 2. Register a Service Worker dynamically (Required for Android/Chrome install)
+if ('serviceWorker' in navigator) {
+  const swCode = `
+    const CACHE_NAME = 'odu-collector-v1';
+    self.addEventListener('install', e => self.skipWaiting());
+    self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+    self.addEventListener('fetch', function(event) {
+      event.respondWith(
+        fetch(event.request).catch(() => caches.match(event.request))
+      );
+    });
+  `;
+  const swBlob = new Blob([swCode], {type: 'application/javascript'});
+  const swURL = URL.createObjectURL(swBlob);
+  navigator.serviceWorker.register(swURL).then(() => {
+    console.log('PWA Service Worker Registered');
+  }).catch(err => console.error('SW registration failed', err));
+}
+
+// 3. Handle the Install Prompt for Android/Desktop browsers
+let deferredPrompt;
+const installBtn = document.getElementById('installBtn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  installBtn.style.display = 'flex'; // Show the button
+});
+
+installBtn.addEventListener('click', async () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      installBtn.style.display = 'none'; // Hide after installation
+    }
+    deferredPrompt = null;
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  installBtn.style.display = 'none';
+});
 </script>
 </body>
 </html>
