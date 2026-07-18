@@ -358,7 +358,7 @@ tr.row-collected:hover{background:#fef3c7}
           </div>
         </div>
         <div class="field"><label>Role</label><select id="regRole"><option value="installer">Installer</option><option value="supervisor">Supervisor</option></select></div>
-        <div class="field" id="supervisorField" style="display:none"><label>Select Supervisor</label><select id="regSupervisor"><option value="">Loading supervisors...</option></select></div>
+        <div class="field" id="supervisorField"><label>Select Supervisor</label><select id="regSupervisor"><option value="">Loading supervisors...</option></select></div>
         <div class="field" id="clusterField"><label>Cluster Name</label><input type="text" id="regCluster" placeholder="e.g. Lusaka Central" /></div>
         <div class="field"><label>Password</label><input type="password" id="regPassword" placeholder="Min 4 characters" /></div>
         <button class="btn-primary" id="registerBtn">Create Account</button>
@@ -918,39 +918,55 @@ function showAuthError(msg) {
   setTimeout(function() { e.style.display = 'none'; }, 5000);
 }
 
- $('#goToRegister').onclick = function() { $('#loginForm').style.display = 'none'; $('#registerForm').style.display = 'block'; };
+ $('#goToRegister').onclick = function() { $('#loginForm').style.display = 'none'; $('#registerForm').style.display = 'block'; 
+loadSupervisors();
+};
  $('#goToLogin').onclick = function() { $('#registerForm').style.display = 'none'; $('#resetForm').style.display = 'none'; $('#loginForm').style.display = 'block'; };
  $('#goToReset').onclick = function() { $('#loginForm').style.display = 'none'; $('#resetForm').style.display = 'block'; };
  $('#goToLoginFromReset').onclick = function() { $('#resetForm').style.display = 'none'; $('#loginForm').style.display = 'block'; };
 
- $('#regRole').onchange = function() {
+   $('#regRole').addEventListener('change', function() {
   if (this.value === 'installer') {
     $('#supervisorField').style.display = 'block';
-    $('#clusterField').style.display = 'none';
-    loadSupervisors();
+    // Reload supervisors if the dropdown is still showing the loading/empty state
+    if ($('#regSupervisor').options.length <= 1) {
+      loadSupervisors();
+    }
   } else {
     $('#supervisorField').style.display = 'none';
-    $('#clusterField').style.display = 'block';
+    $('#regSupervisor').value = ''; // Clear selection
   }
-};
+});
 
 function loadSupervisors() {
-  DB.getSupervisors().then(function(supervisors) {
-    var sel = $('#regSupervisor');
-    sel.innerHTML = '<option value="">Select Supervisor</option>';
-    supervisors.forEach(function(s) {
-      var opt = document.createElement('option');
-      opt.value = s.id;
-      opt.textContent = s.fullName + ' (' + s.cluster + ')';
-      opt.setAttribute('data-cluster', s.cluster);
-      sel.appendChild(opt);
+  var sel = $('#regSupervisor');
+  sel.innerHTML = '<option value="">Loading supervisors...</option>';
+  
+  if (!db) {
+    sel.innerHTML = '<option value="">Error: DB not initialized</option>';
+    return;
+  }
+
+  db.collection('users').where('role', '==', 'supervisor').get()
+    .then(function(querySnapshot) {
+      if (querySnapshot.empty) {
+        sel.innerHTML = '<option value="">No supervisors found</option>';
+        return;
+      }
+      
+      sel.innerHTML = '<option value="">-- Select a Supervisor --</option>';
+      querySnapshot.forEach(function(doc) {
+        var sup = doc.data();
+        var opt = document.createElement('option');
+        opt.value = doc.id; // Save the supervisor's User ID
+        opt.textContent = sup.fullName + (sup.cluster ? ' (' + sup.cluster + ')' : '');
+        sel.appendChild(opt);
+      });
+    })
+    .catch(function(err) {
+      console.error("Error fetching supervisors:", err);
+      sel.innerHTML = '<option value="">Error loading supervisors</option>';
     });
-    if (supervisors.length === 0) {
-      sel.innerHTML = '<option value="">No supervisors found</option>';
-    }
-  }).catch(function(err) {
-    console.error('Error loading supervisors:', err);
-  });
 }
 
  $('#regSupervisor').onchange = function() {
