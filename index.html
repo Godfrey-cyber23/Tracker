@@ -17,6 +17,7 @@
 <title>Airtel Zambia — ODU Collector</title>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -44,10 +45,60 @@ button{cursor:pointer;border:none;font-family:inherit}
 input,select,textarea{font-family:inherit;font-size:14px}
 svg{width:20px;height:20px;stroke-width:2;stroke:currentColor;fill:none;stroke-linecap:round;stroke-linejoin:round}
 
-.loading-overlay{position:fixed;inset:0;background:rgba(69,0,0,.35);z-index:9999;display:none;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+.loading-overlay{position:fixed;inset:0;background:rgba(45,0,0,.55);z-index:9999;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
 .loading-overlay.active{display:flex}
-.loading-spinner{width:48px;height:48px;border:4px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
+
+/* 3-Arc Premium Spinner */
+.fancy-spinner {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.25)); /* Subtle glow */
+}
+.fancy-spinner .arc {
+  position: absolute;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+/* Outermost Ring: Fading edges using conic-gradient & mask */
+.fancy-spinner .arc-1 {
+  width: 100%;
+  height: 100%;
+  /* Fades from transparent -> white -> red -> transparent */
+  background: conic-gradient(transparent 0%, #ffffff 15%, var(--red-500) 55%, transparent 100%);
+  /* Cuts out the center to make it a ring instead of a solid circle */
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+  animation: spin-cw 2.2s linear infinite;
+}
+
+/* Middle Ring: Two solid opposing arcs */
+.fancy-spinner .arc-2 {
+  width: 75%;
+  height: 75%;
+  top: 12.5%;
+  left: 12.5%;
+  border: 4px solid transparent;
+  border-top-color: #ffffff;
+  border-bottom-color: var(--red-400);
+  animation: spin-ccw 1.6s linear infinite;
+}
+
+/* Innermost Ring: Two solid opposing arcs */
+.fancy-spinner .arc-3 {
+  width: 45%;
+  height: 45%;
+  top: 27.5%;
+  left: 27.5%;
+  border: 3px solid transparent;
+  border-left-color: var(--red-600);
+  border-right-color: #ffffff;
+  animation: spin-cw 1.1s linear infinite;
+}
+
+@keyframes spin-cw { to { transform: rotate(360deg); } }
+@keyframes spin-ccw { to { transform: rotate(-360deg); } }
 
 .conn-bar{position:fixed;top:0;left:0;right:0;height:3px;z-index:100;transition:.3s}
 .conn-bar.online{background:var(--green)}
@@ -163,11 +214,69 @@ tr.row-collected:hover{background:#fef3c7}
 .search input{width:100%;padding:10px 12px 10px 36px;border:1px solid var(--border);border-radius:9px;outline:none;background:#fff}
 .search input:focus{border-color:var(--red-400);box-shadow:0 0 0 3px rgba(228,0,0,.08)}
 .search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--airtel-gray);width:18px;height:18px}
-.filter-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
-.filter-group{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--airtel-gray);font-weight:600}
-.filter-group select{padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;outline:none;font-size:13px;min-width:140px;cursor:pointer}
-.filter-group select:focus{border-color:var(--red-400)}
+.filter-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+  align-items: end;
+}
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--airtel-gray);
+  font-weight: 600;
+}
+.filter-group span {
+  white-space: nowrap;
+}
+.filter-group select,
+.filter-group input[type="date"] {
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  outline: none;
+  font-size: 13px;
+  width: 100%;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.filter-group select:focus,
+.filter-group input[type="date"]:focus {
+  border-color: var(--red-400);
+  box-shadow: 0 0 0 2px rgba(228, 0, 0, 0.08);
+}
+.filter-group .btn {
+  width: 100%;
+  justify-content: center;
+  margin-top: 0;
+}
 
+/* Tablet: 2 columns */
+@media (max-width: 860px) {
+  .filter-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Mobile: stack to single column, then 2-column pairs */
+@media (max-width: 480px) {
+  .filter-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .filter-group select,
+  .filter-group input[type="date"] {
+    font-size: 14px; /* Larger touch target on mobile */
+    padding: 10px 10px;
+  }
+  .filter-clear-wrap {
+    grid-column: 1 / -1;
+  }
+}
 .pagination-wrap{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
 .page-info{font-size:12px;color:var(--airtel-gray);white-space:nowrap}
 .page-info strong{color:var(--red-700);font-weight:600}
@@ -315,11 +424,93 @@ tr.row-collected:hover{background:#fef3c7}
 .tour-actions { display: flex; gap: 8px; }
 .tour-skip { background: transparent; color: var(--airtel-gray); font-size: 12px; font-weight: 600; cursor: pointer; padding: 8px 12px; border-radius: 8px; transition: .15s; }
 .tour-skip:hover { background: var(--red-50); color: var(--red-600); }
+.filter-group input[type="date"] {
+  padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;outline:none;font-size:13px;min-width:140px;cursor:pointer;
+}
+.filter-group input[type="date"]:focus {
+  border-color:var(--red-400);
+}
+/* ================================================================
+   PROFILE LAYOUT & RESPONSIVENESS
+================================================================ */
+.profile-container {
+  max-width: 600px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.profile-panel {
+  width: 100%;
+  margin-bottom: 0 !important; /* Override default panel margin */
+}
+
+/* Professional Detail Grid */
+.profile-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 24px;
+}
+.profile-detail-item {
+  background: var(--red-50);
+  padding: 14px 18px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  transition: box-shadow 0.15s;
+}
+.profile-detail-item:hover {
+  box-shadow: 0 2px 8px rgba(139,0,0,0.06);
+}
+.profile-detail-item .lbl {
+  font-size: 11px;
+  color: var(--airtel-gray);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+  display: block;
+}
+.profile-detail-item .val {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--airtel-black);
+  word-break: break-word;
+  line-height: 1.3;
+}
+.profile-detail-item.full-width {
+  grid-column: 1 / -1;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .profile-detail-grid {
+    grid-template-columns: 1fr; /* Stack items on small screens */
+    gap: 12px;
+  }
+  .profile-detail-item .val {
+    font-size: 15px;
+  }
+  .stats-grid.four-col {
+    grid-template-columns: repeat(2, 1fr); /* Force 2x2 grid for stats on mobile */
+  }
+}
+
+@media (max-width: 380px) {
+  .profile-detail-item {
+    padding: 12px 14px;
+  }
+}
 </style>
 </head>
 <body>
 
-<div class="loading-overlay" id="loadingOverlay"><div class="loading-spinner"></div></div>
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="fancy-spinner">
+    <div class="arc arc-1"></div>
+    <div class="arc arc-2"></div>
+    <div class="arc arc-3"></div>
+  </div>
+</div>
 <div class="conn-bar online" id="connBar"></div>
 
 <div id="authScreen" class="auth-wrap" style="display:none">
@@ -409,6 +600,12 @@ tr.row-collected:hover{background:#fef3c7}
       </div>
       <div class="user-chip">
         <div class="user-meta"><strong id="userName">—</strong><span id="userRole">—</span></div>
+
+<!-- Notification Bell -->
+  <button id="notifBtn" style="position:relative;cursor:pointer;background:none;border:none;color:var(--red-700);padding:4px;">
+    <svg viewBox="0 0 24 24" style="width:24px;height:24px"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+    <span id="notifCount" style="position:absolute;top:-2px;right:-2px;background:var(--red-500);color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:700;display:none;align-items:center;justify-content:center;">0</span>
+  </button>
         <div class="user-avatar" id="userAvatar">?</div>
       </div>
     </div>
@@ -480,9 +677,35 @@ tr.row-collected:hover{background:#fef3c7}
             <button class="btn btn-outline btn-sm" id="exportAllPdf"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> PDF</button>
           </div>
         </div>
-        <div class="filter-row">
-          <div class="filter-group"><span>Installer:</span><select id="filterInstaller"><option value="all">All Installers</option></select></div>
-          <div class="filter-group"><span>Status:</span><select id="filterStatus"><option value="all">All Statuses</option><option value="collected">Collected Only</option><option value="installed">Installed Only</option></select></div>
+                        <div class="filter-row">
+          <div class="filter-group">
+            <span>Installer</span>
+            <select id="filterInstaller"><option value="all">All Installers</option></select>
+          </div>
+          <div class="filter-group">
+            <span>Status</span>
+            <select id="filterStatus"><option value="all">All Statuses</option><option value="collected">Collected Only</option><option value="installed">Installed Only</option></select>
+          </div>
+          <div class="filter-group">
+            <span>From</span>
+            <input type="date" id="filterDateFrom" />
+          </div>
+          <div class="filter-group">
+            <span>To</span>
+            <input type="date" id="filterDateTo" />
+          </div>
+          <div class="filter-group">
+            <span>Month</span>
+            <select id="filterMonth"><option value="all">All Months</option><option value="0">January</option><option value="1">February</option><option value="2">March</option><option value="3">April</option><option value="4">May</option><option value="5">June</option><option value="6">July</option><option value="7">August</option><option value="8">September</option><option value="9">October</option><option value="10">November</option><option value="11">December</option></select>
+          </div>
+          <div class="filter-group">
+            <span>Year</span>
+            <select id="filterYear"><option value="all">All Years</option></select>
+          </div>
+          <div class="filter-group filter-clear-wrap">
+            <span>&nbsp;</span>
+            <button class="btn btn-outline btn-sm" id="clearFiltersBtn">✕ Clear Filters</button>
+          </div>
         </div>
         <div class="panel">
           <div class="table-wrap">
@@ -499,29 +722,34 @@ tr.row-collected:hover{background:#fef3c7}
         </div>
       </section>
 
-      <section class="view" id="view-profile">
-  <div class="panel" style="max-width:520px"><div class="panel-head"><h3>My Profile</h3></div><div id="profileInfo"></div></div>
-  <div class="panel" style="max-width:520px">
-    <div class="panel-head"><h3>My Summary</h3><button class="btn btn-red btn-sm" id="logoutBtnMobile">Sign Out</button></div>
-    <div id="profileStats"></div>
-  </div>
-  <div class="panel" style="max-width:520px">
-    <div class="panel-head"><h3>System Info</h3></div>
-    <p style="font-size:12px;color:var(--airtel-gray);margin-bottom:12px">Project: <strong id="profileProjectId">—</strong> &nbsp;|&nbsp; Status: <strong id="profileConnStatus">—</strong></p>
-  </div>
-  
-  <!-- ABOUT APP MOVED HERE -->
-  <div class="panel" style="max-width:520px">
-    <div class="panel-head"><h3>About ODU Collector</h3></div>
-    <div style="font-size:14px;line-height:1.7;color:#444">
-      <p><strong>Version:</strong> 2.0.0</p>
-      <p><strong>Project:</strong> Airtel Zambia 5G WiFi Router IMEI Collection</p>
-      <p style="margin-top:12px">This application is designed to streamline the collection and installation tracking of ODU (Outdoor Unit) 5G WiFi routers. Field installers can scan or manually enter IMEI numbers, which are then synced in real-time to Firestore.</p>
-      <p style="margin-top:12px">Supervisors have an overarching view of all devices collected within their assigned cluster, allowing for seamless monitoring of installation progress.</p>
-      <p style="margin-top:20px;font-size:12px;color:#888">&copy; 2024 Airtel Zambia. All rights reserved.</p>
-    </div>
-  </div>
-</section>
+            <section class="view" id="view-profile">
+        <div class="profile-container">
+          <div class="panel profile-panel">
+            <div class="panel-head"><h3>My Profile</h3></div>
+            <div id="profileInfo"></div>
+          </div>
+          <div class="panel profile-panel">
+            <div class="panel-head"><h3>My Summary</h3><button class="btn btn-red btn-sm" id="logoutBtnMobile">Sign Out</button></div>
+            <div id="profileStats"></div>
+          </div>
+          <div class="panel profile-panel">
+            <div class="panel-head"><h3>System Info</h3></div>
+            <p style="font-size:12px;color:var(--airtel-gray);margin-bottom:12px">Project: <strong id="profileProjectId">—</strong> &nbsp;|&nbsp; Status: <strong id="profileConnStatus">—</strong></p>
+          </div>
+          
+          <!-- ABOUT APP -->
+          <div class="panel profile-panel">
+            <div class="panel-head"><h3>About ODU Collector</h3></div>
+            <div style="font-size:14px;line-height:1.7;color:#444">
+              <p><strong>Version:</strong> 2.0.0</p>
+              <p><strong>Project:</strong> Airtel Zambia 5G WiFi Router IMEI Collection</p>
+              <p style="margin-top:12px">This application is designed to streamline the collection and installation tracking of ODU (Outdoor Unit) 5G WiFi routers. Field installers can scan or manually enter IMEI numbers, which are then synced in real-time to Firestore.</p>
+              <p style="margin-top:12px">Supervisors have an overarching view of all devices collected within their assigned cluster, allowing for seamless monitoring of installation progress.</p>
+              <p style="margin-top:20px;font-size:12px;color:#888">&copy; 2024 Airtel Zambia. All rights reserved.</p>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 </div>
@@ -542,6 +770,97 @@ tr.row-collected:hover{background:#fef3c7}
     <div class="modal-foot">
       <button class="btn btn-outline" id="editCancelBtn">Cancel</button>
       <button class="btn btn-red" id="editSaveBtn">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="crossInstallModal">
+  <div class="modal-card" style="border-top-color: var(--amber)">
+    <div class="modal-head">
+      <h3 style="color: var(--amber-dark)">
+        <svg viewBox="0 0 24 24" style="width:22px;height:22px;color:var(--amber)"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        Device Already Collected
+      </h3>
+      <button class="modal-close" id="crossInstallClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="crossInstallInfo" style="background:var(--amber-light);border:1px solid #fcd34d;border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;line-height:1.6;color:var(--amber-dark)"></div>
+      <div style="background:var(--red-50);border:1px solid var(--red-200);border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;line-height:1.6;color:var(--red-700)">
+        <strong>⚠ Important:</strong> Installing a device collected by another installer will update its status. The original collector will see this change automatically.
+      </div>
+      <div class="modal-field">
+        <label>Installation Site / Notes (optional)</label>
+        <input type="text" id="crossInstallNotes" placeholder="e.g. Customer name, location" />
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" id="crossInstallCancel">Cancel</button>
+      <button class="btn btn-green" id="crossInstallConfirm">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        Yes, Install This Device
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="alreadyInstalledModal">
+  <div class="modal-card" style="border-top-color: var(--green)">
+    <div class="modal-head">
+      <h3 style="color: var(--green-dark)">
+        <svg viewBox="0 0 24 24" style="width:22px;height:22px;color:var(--green)"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        Device Already Installed
+      </h3>
+      <button class="modal-close" id="alreadyInstalledClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="alreadyInstalledInfo" style="background:var(--green-light);border:1px solid #86efac;border-radius:10px;padding:14px;font-size:13px;line-height:1.6;color:var(--green-dark)"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" id="alreadyInstalledOk">OK, Got It</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="ownCollectedModal">
+  <div class="modal-card" style="border-top-color: var(--red-500)">
+    <div class="modal-head">
+      <h3>
+        <svg viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        Mark as Installed?
+      </h3>
+      <button class="modal-close" id="ownCollectedClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="ownCollectedInfo" style="background:var(--green-light);border:1px solid #86efac;border-radius:10px;padding:14px;font-size:13px;line-height:1.6;color:var(--green-dark)"></div>
+      <div style="margin-top:12px;font-size:13px;color:var(--airtel-gray)">You collected this device. Would you like to mark it as <strong>Installed</strong> now?</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" id="ownCollectedCancel">Keep as Collected</button>
+      <button class="btn btn-green" id="ownCollectedConfirm">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        Mark Installed
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Approvals Modal -->
+<div class="modal-backdrop" id="approvalsModal">
+  <div class="modal-card" style="max-width:500px;border-top-color:var(--amber)">
+    <div class="modal-head">
+      <h3 style="color:var(--amber-dark)">
+        <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:var(--amber)"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+        Action Center
+      </h3>
+      <button class="modal-close" id="approvalsClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;gap:8px;margin-bottom:16px;background:var(--red-50);padding:4px;border-radius:10px;">
+        <button class="btn btn-sm" id="tabInstallReqs" style="flex:1;justify-content:center;background:var(--amber);color:#fff">Install Requests</button>
+        <button class="btn btn-outline btn-sm" id="tabPasswordReqs" style="flex:1;justify-content:center;">Password Resets</button>
+      </div>
+      <div id="installReqsList" style="max-height:55vh;overflow-y:auto"></div>
+      <div id="passwordReqsList" style="max-height:55vh;overflow-y:auto;display:none"></div>
     </div>
   </div>
 </div>
@@ -579,6 +898,7 @@ var db = null;
 var currentUser = null;
 var cachedDevices = [];
 var dashboardUnsub = null;
+var notifUnsub = null;
 var isOnline = navigator.onLine;
 var trendChart = null;
 var statusChart = null;
@@ -591,6 +911,110 @@ var scanMode = 'scan';
 var pendingScans = [];
 var torchOn = false;
 var quickLogItems = [];
+var crossInstallDevice = null;
+
+// ================================================================
+// PUSH NOTIFICATIONS CONFIG
+// ================================================================
+var FCM_VAPID_KEY = 'BIUOhRCa2gN7oNDaxW2e4Fz5sZkBpzq660orOSwu29DbRqFI-evlnHrht9oVHCdMpvCuSl_PqXDgXjj4VbtgOOs';
+var messaging = null;
+
+// Notification chime sound — ascending three-tone
+function playNotifChime() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    var notes = [
+      { freq: 660, start: 0, dur: 0.12 },
+      { freq: 880, start: 0.12, dur: 0.12 },
+      { freq: 1100, start: 0.24, dur: 0.25 }
+    ];
+    notes.forEach(function(note) {
+      var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+      o.type = 'sine'; o.frequency.value = note.freq;
+      g.gain.setValueAtTime(0.2, audioCtx.currentTime + note.start);
+      g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + note.start + note.dur);
+      o.start(audioCtx.currentTime + note.start);
+      o.stop(audioCtx.currentTime + note.start + note.dur);
+    });
+  } catch(e) {}
+}
+
+// App badge — shows count on the app icon (home screen / taskbar)
+function updateAppBadge(count) {
+  if ('setAppBadge' in navigator) {
+    if (count > 0) navigator.setAppBadge(count).catch(function() {});
+    else navigator.clearAppBadge().catch(function() {});
+  }
+}
+
+// Initialize Firebase Cloud Messaging
+function initFCM() {
+  try {
+    if (typeof firebase === 'undefined' || !firebase.messaging) return;
+    if (!FCM_VAPID_KEY || FCM_VAPID_KEY === 'BIUOhRCa2gN7oNDaxW2e4Fz5sZkBpzq660orOSwu29DbRqFI-evlnHrht9oVHCdMpvCuSl_PqXDgXjj4VbtgOOs') {
+      console.warn('FCM: Set FCM_VAPID_KEY to enable push notifications when app is closed');
+      return;
+    }
+    messaging = firebase.messaging();
+
+    // Handle foreground messages (when app is open)
+    messaging.onMessage(function(payload) {
+      playNotifChime();
+      var data = payload.notification || payload.data || {};
+      toast(data.title || 'New Request', 'info', data.body || '');
+    });
+
+    // Handle token refresh
+    messaging.onTokenRefresh(function() {
+      messaging.getToken({ vapidKey: FCM_VAPID_KEY }).then(function(token) {
+        if (token) saveFCMToken(token);
+      });
+    });
+
+    // If permission already granted, get token
+    if ('Notification' in window && Notification.permission === 'granted') {
+      messaging.getToken({ vapidKey: FCM_VAPID_KEY }).then(function(token) {
+        if (token) saveFCMToken(token);
+      }).catch(function(err) { console.warn('FCM getToken:', err); });
+    }
+  } catch(err) {
+    console.warn('FCM init error:', err);
+  }
+}
+
+function requestNotifPermission() {
+  if (!messaging) {
+    toast('Push notifications not configured yet', 'info', 'Ask your admin to set up FCM VAPID key');
+    return;
+  }
+  Notification.requestPermission().then(function(permission) {
+    if (permission === 'granted') {
+      messaging.getToken({ vapidKey: FCM_VAPID_KEY }).then(function(token) {
+        if (token) {
+          saveFCMToken(token);
+          toast('Notifications enabled!', 'success', 'You will receive install requests instantly');
+          renderProfile(); // Refresh profile to show new status
+        }
+      }).catch(function(err) { toast('Failed to get notification token', 'error'); });
+    } else {
+      toast('Notifications blocked', 'info', 'Enable in browser settings to receive requests');
+    }
+  });
+}
+
+function saveFCMToken(token) {
+  if (!currentUser || !db) return;
+  db.collection('users').doc(currentUser.id).get().then(function(doc) {
+    if (doc.exists) {
+      var tokens = doc.data().fcmTokens || [];
+      if (tokens.indexOf(token) === -1) {
+        tokens.push(token);
+        db.collection('users').doc(currentUser.id).update({ fcmTokens: tokens });
+      }
+    }
+  });
+}
 
 function $(s) { return document.querySelector(s); }
 function $$(s) { return document.querySelectorAll(s); }
@@ -599,10 +1023,7 @@ var _loadCount = 0;
 function showLoading() { _loadCount++; $('#loadingOverlay').classList.add('active'); }
 function hideLoading() { _loadCount = Math.max(0, _loadCount - 1); if (_loadCount === 0) $('#loadingOverlay').classList.remove('active'); }
 
-function updateConnUI() {
-  isOnline = navigator.onLine;
-  $('#connBar').className = 'conn-bar ' + (isOnline ? 'online' : 'offline');
-}
+function updateConnUI() { isOnline = navigator.onLine; $('#connBar').className = 'conn-bar ' + (isOnline ? 'online' : 'offline'); }
 window.addEventListener('online', updateConnUI);
 window.addEventListener('offline', updateConnUI);
 
@@ -627,7 +1048,7 @@ function fmtFull(ts) { if (!ts) return '—'; return new Date(ts).toLocaleString
 function statusBadge(installed) { return installed ? '<span class="badge green">Installed</span>' : '<span class="badge amber">Collected</span>'; }
 
 /* ================================================================
-   TOUR GUIDE LOGIC
+   TOUR GUIDE
 ================================================================ */
 var tourSteps = [
   { target: '#statsGrid', title: '📊 Dashboard Overview', text: 'Welcome! Here you will see a live summary of all devices collected, installed, and pending in your cluster.' },
@@ -637,344 +1058,217 @@ var tourSteps = [
 ];
 var currentTourStep = 0;
 
-function startTour() {
-  currentTourStep = 0;
-  $('#tourOverlay').classList.add('active');
-  renderTourStep();
-}
+function startTour() { currentTourStep = 0; $('#tourOverlay').classList.add('active'); renderTourStep(); }
 
 function renderTourStep() {
   var step = tourSteps[currentTourStep];
-  
-  // Find the visible target (handles desktop sidebar vs mobile nav)
   var elements = document.querySelectorAll(step.target);
   var targetEl = Array.from(elements).find(function(e) { return e.offsetParent !== null; });
-  if (!targetEl) return nextTourStep(); // Skip if not visible
-
+  if (!targetEl) return nextTourStep();
   var rect = targetEl.getBoundingClientRect();
   var spotlight = $('#tourSpotlight');
-  
-  // Position spotlight
-  spotlight.style.top = (rect.top - 6) + 'px';
-  spotlight.style.left = (rect.left - 6) + 'px';
-  spotlight.style.width = (rect.width + 12) + 'px';
-  spotlight.style.height = (rect.height + 12) + 'px';
-
-  // Setup tooltip content
-  $('#tourTitle').innerHTML = step.title;
-  $('#tourText').textContent = step.text;
+  spotlight.style.top = (rect.top - 6) + 'px'; spotlight.style.left = (rect.left - 6) + 'px';
+  spotlight.style.width = (rect.width + 12) + 'px'; spotlight.style.height = (rect.height + 12) + 'px';
+  $('#tourTitle').innerHTML = step.title; $('#tourText').textContent = step.text;
   $('#tourProgress').textContent = (currentTourStep + 1) + ' / ' + tourSteps.length;
-  
-  // Toggle button visibility
   $('#tourPrev').style.display = currentTourStep === 0 ? 'none' : 'inline-flex';
   $('#tourNext').textContent = currentTourStep === tourSteps.length - 1 ? 'Finish' : 'Next';
-
-  var tooltip = $('#tourTooltip');
-  tooltip.style.display = 'block';
-
-  // Wait for DOM to render tooltip dimensions, then position
+  var tooltip = $('#tourTooltip'); tooltip.style.display = 'block';
   setTimeout(function() {
     var tipRect = tooltip.getBoundingClientRect();
-    var tipTop = rect.bottom + 15;
-    var tipLeft = rect.left + (rect.width / 2) - (tipRect.width / 2);
-
-    // Prevent going off bottom of screen
-    if (tipTop + tipRect.height > window.innerHeight - 20) {
-      tipTop = rect.top - tipRect.height - 15;
-    }
-    // Prevent going off top of screen
-    if (tipTop < 20) {
-      tipTop = 20;
-    }
-    // Prevent going off right of screen
-    if (tipLeft + tipRect.width > window.innerWidth - 20) {
-      tipLeft = window.innerWidth - tipRect.width - 20;
-    }
-    // Prevent going off left of screen
-    if (tipLeft < 20) {
-      tipLeft = 20;
-    }
-
-    tooltip.style.top = tipTop + 'px';
-    tooltip.style.left = tipLeft + 'px';
+    var tipTop = rect.bottom + 15; var tipLeft = rect.left + (rect.width / 2) - (tipRect.width / 2);
+    if (tipTop + tipRect.height > window.innerHeight - 20) tipTop = rect.top - tipRect.height - 15;
+    if (tipTop < 20) tipTop = 20;
+    if (tipLeft + tipRect.width > window.innerWidth - 20) tipLeft = window.innerWidth - tipRect.width - 20;
+    if (tipLeft < 20) tipLeft = 20;
+    tooltip.style.top = tipTop + 'px'; tooltip.style.left = tipLeft + 'px';
   }, 50);
 }
 
-function nextTourStep() {
-  currentTourStep++;
-  if (currentTourStep >= tourSteps.length) return endTour();
-  renderTourStep();
-}
-
-function prevTourStep() {
-  currentTourStep--;
-  if (currentTourStep < 0) currentTourStep = 0;
-  renderTourStep();
-}
-
-function endTour() {
-  $('#tourOverlay').classList.remove('active');
-  $('#tourTooltip').style.display = 'none';
-  if (currentUser) {
-    localStorage.setItem('tour_completed_' + currentUser.id, 'true');
-  }
-}
+function nextTourStep() { currentTourStep++; if (currentTourStep >= tourSteps.length) return endTour(); renderTourStep(); }
+function prevTourStep() { currentTourStep--; if (currentTourStep < 0) currentTourStep = 0; renderTourStep(); }
+function endTour() { $('#tourOverlay').classList.remove('active'); $('#tourTooltip').style.display = 'none'; if (currentUser) localStorage.setItem('tour_completed_' + currentUser.id, 'true'); }
 
  $('#tourNext').onclick = nextTourStep;
  $('#tourPrev').onclick = prevTourStep;
  $('#tourSkip').onclick = endTour;
+window.addEventListener('resize', function() { if ($('#tourOverlay').classList.contains('active')) renderTourStep(); });
 
-// Recalculate spotlight position if window is resized during tour
-window.addEventListener('resize', function() {
-  if ($('#tourOverlay').classList.contains('active')) {
-    renderTourStep();
-  }
-});
+function hashPassword(pw) { if (typeof CryptoJS === 'undefined') return pw; return CryptoJS.SHA256(pw).toString(); }
 
 /* ================================================================
-   PASSWORD HASHING
-================================================================ */
-function hashPassword(pw) {
-  if (typeof CryptoJS === 'undefined') return pw; // Fallback if library fails
-  return CryptoJS.SHA256(pw).toString();
-}
-
-/* ================================================================
-   DATABASE LAYER
+   DATABASE
 ================================================================ */
 var DB = {
-  _ready: function() {
-    if (!db) return Promise.reject(new Error('Firestore not initialized'));
-    return Promise.resolve();
-  },
+  _ready: function() { if (!db) return Promise.reject(new Error('Firestore not initialized')); return Promise.resolve(); },
 
   getUserByContact: function(contact) {
     return this._ready().then(function() {
-      return db.collection('users').where('contact', '==', contact).limit(1).get()
-        .then(function(snap) {
-          if (snap.empty) return null;
-          var doc = snap.docs[0];
-          return { id: doc.id, fullName: doc.data().fullName, contact: doc.data().contact, role: doc.data().role, cluster: doc.data().cluster, password: doc.data().password, createdAt: doc.data().createdAt };
-        });
+      return db.collection('users').where('contact', '==', contact).limit(1).get().then(function(snap) {
+        if (snap.empty) return null; var doc = snap.docs[0];
+        return { id: doc.id, fullName: doc.data().fullName, contact: doc.data().contact, role: doc.data().role, cluster: doc.data().cluster, password: doc.data().password, createdAt: doc.data().createdAt };
+      });
     });
   },
 
   createUser: function(userData) {
     return this._ready().then(function() {
-      return db.collection('users').add({
-        fullName: userData.fullName,
-        contact: userData.contact,
-        role: userData.role,
-        cluster: userData.cluster,
-        supervisorId: userData.supervisorId || null,
-        password: userData.password,
-        createdAt: Date.now()
-      }).then(function(docRef) { return docRef.id; });
+      return db.collection('users').add({ fullName: userData.fullName, contact: userData.contact, role: userData.role, cluster: userData.cluster, supervisorId: userData.supervisorId || null, password: userData.password, createdAt: Date.now() }).then(function(docRef) { return docRef.id; });
     });
   },
 
-  updateUser: function(id, updates) {
-    return this._ready().then(function() {
-      return db.collection('users').doc(id).update(updates);
-    });
-  },
+  updateUser: function(id, updates) { return this._ready().then(function() { return db.collection('users').doc(id).update(updates); }); },
 
   getUserById: function(id) {
     return this._ready().then(function() {
-      return db.collection('users').doc(id).get()
-        .then(function(doc) {
-          if (!doc.exists) return null;
-          return { id: doc.id, fullName: doc.data().fullName, contact: doc.data().contact, role: doc.data().role, cluster: doc.data().cluster, password: doc.data().password, createdAt: doc.data().createdAt };
-        });
+      return db.collection('users').doc(id).get().then(function(doc) {
+        if (!doc.exists) return null;
+        return { id: doc.id, fullName: doc.data().fullName, contact: doc.data().contact, role: doc.data().role, cluster: doc.data().cluster, password: doc.data().password, createdAt: doc.data().createdAt };
+      });
     });
   },
 
   getSupervisors: function() {
     return this._ready().then(function() {
-      return db.collection('users').where('role', '==', 'supervisor').get()
-        .then(function(snap) {
-          return snap.docs.map(function(d) { 
-            var data = d.data(); 
-            return { id: d.id, fullName: data.fullName, cluster: data.cluster }; 
-          });
-        });
+      return db.collection('users').where('role', '==', 'supervisor').get().then(function(snap) { return snap.docs.map(function(d) { var data = d.data(); return { id: d.id, fullName: data.fullName, cluster: data.cluster }; }); });
     });
+  },
+
+  _mapDevice: function(doc) {
+    var data = doc.data ? doc.data() : doc;
+    var id = doc.id || data.id || null;
+    return {
+      id: id, serial: data.serial, cluster: data.cluster,
+      collectedBy: data.collectedBy, collectedByName: data.collectedByName, collectedAt: data.collectedAt,
+      installed: data.installed, installedAt: data.installedAt,
+      installedBy: data.installedBy || null, installedByName: data.installedByName || null,
+      installRequestedBy: data.installRequestedBy || null, installRequestedByName: data.installRequestedByName || null, installRequestedAt: data.installRequestedAt || null,
+      createdAt: data.createdAt
+    };
   },
 
   getDevicesForScope: function() {
     return this._ready().then(function() {
-      var query;
-      if (currentUser.role === 'supervisor') {
-        query = db.collection('devices').where('cluster', '==', currentUser.cluster);
-      } else {
-        query = db.collection('devices').where('collectedBy', '==', currentUser.id);
-      }
-      return query.get().then(function(snap) {
-        return snap.docs.map(function(d) { var data = d.data(); return { id: d.id, serial: data.serial, cluster: data.cluster, collectedBy: data.collectedBy, collectedByName: data.collectedByName, collectedAt: data.collectedAt, installed: data.installed, installedAt: data.installedAt, createdAt: data.createdAt }; });
-      });
+      return db.collection('devices').where('cluster', '==', currentUser.cluster).get().then(function(snap) { return snap.docs.map(function(d) { return DB._mapDevice(d); }); });
     });
   },
 
   onDevicesChange: function(callback) {
     if (!db) { callback([]); return function() {}; }
-    var query;
-    if (currentUser.role === 'supervisor') {
-      query = db.collection('devices').where('cluster', '==', currentUser.cluster);
-    } else {
-      query = db.collection('devices').where('collectedBy', '==', currentUser.id);
-    }
+    var query = db.collection('devices').where('cluster', '==', currentUser.cluster);
     return query.onSnapshot(function(snap) {
       showSyncing();
-      var devices = snap.docs.map(function(d) { var data = d.data(); return { id: d.id, serial: data.serial, cluster: data.cluster, collectedBy: data.collectedBy, collectedByName: data.collectedByName, collectedAt: data.collectedAt, installed: data.installed, installedAt: data.installedAt, createdAt: data.createdAt }; });
-      cachedDevices = devices;
-      callback(devices);
+      cachedDevices = snap.docs.map(function(d) { return DB._mapDevice(d); });
+      callback(cachedDevices);
       setTimeout(showSynced, 600);
-    }, function(err) {
-      console.error('Firestore listener error:', err);
-      toast('Sync error: ' + err.message, 'error');
-      showSynced();
-    });
+    }, function(err) { console.error('Firestore listener error:', err); toast('Sync error: ' + err.message, 'error'); showSynced(); });
   },
 
   addDevice: function(deviceData) {
     return this._ready().then(function() {
       return db.collection('devices').add({
-        serial: deviceData.serial, cluster: deviceData.cluster, collectedBy: deviceData.collectedBy,
-        collectedByName: deviceData.collectedByName, collectedAt: Date.now(),
-        installed: false, installedAt: null, createdAt: Date.now()
+        serial: deviceData.serial, cluster: deviceData.cluster, collectedBy: deviceData.collectedBy, collectedByName: deviceData.collectedByName, collectedAt: Date.now(),
+        installed: false, installedAt: null, installedBy: null, installedByName: null,
+        installRequestedBy: null, installRequestedByName: null, installRequestedAt: null, createdAt: Date.now()
       });
     });
   },
 
-  updateDevice: function(docId, updates) {
-    return this._ready().then(function() { return db.collection('devices').doc(docId).update(updates); });
-  },
-
-  deleteDevice: function(docId) {
-    return this._ready().then(function() { return db.collection('devices').doc(docId).delete(); });
-  },
+  updateDevice: function(docId, updates) { return this._ready().then(function() { return db.collection('devices').doc(docId).update(updates); }); },
+  deleteDevice: function(docId) { return this._ready().then(function() { return db.collection('devices').doc(docId).delete(); }); },
 
   findDeviceBySerial: function(serial) {
     return this._ready().then(function() {
-      return db.collection('devices').where('serial', '==', serial).limit(1).get()
-        .then(function(snap) {
-          if (snap.empty) return null;
-          var doc = snap.docs[0];
-          var data = doc.data();
-          if (currentUser.role === 'supervisor' && data.cluster !== currentUser.cluster) return null;
-          if (currentUser.role === 'installer' && data.collectedBy !== currentUser.id) return null;
-          return { id: doc.id, serial: data.serial, cluster: data.cluster, collectedBy: data.collectedBy, collectedByName: data.collectedByName, collectedAt: data.collectedAt, installed: data.installed, installedAt: data.installedAt, createdAt: data.createdAt };
-        });
+      return db.collection('devices').where('serial', '==', serial).limit(1).get().then(function(snap) {
+        if (snap.empty) return null; var doc = snap.docs[0]; var data = doc.data();
+        if (data.cluster !== currentUser.cluster) return null;
+        return DB._mapDevice(doc);
+      });
+    });
+  },
+
+  findDeviceBySerialGlobal: function(serial) {
+    return this._ready().then(function() {
+      return db.collection('devices').where('serial', '==', serial).limit(1).get().then(function(snap) {
+        if (snap.empty) return null; return DB._mapDevice(snap.docs[0]);
+      });
+    });
+  },
+
+  requestInstall: function(docId) {
+    return this._ready().then(function() {
+      return db.collection('devices').doc(docId).update({ installRequestedBy: currentUser.id, installRequestedByName: currentUser.fullName, installRequestedAt: Date.now() });
+    });
+  },
+
+  approveInstall: function(docId, requesterId, requesterName) {
+    return this._ready().then(function() {
+      return db.collection('devices').doc(docId).update({ installed: true, installedAt: Date.now(), installedBy: requesterId, installedByName: requesterName, installRequestedBy: null, installRequestedByName: null, installRequestedAt: null });
+    });
+  },
+
+  rejectInstall: function(docId) {
+    return this._ready().then(function() {
+      return db.collection('devices').doc(docId).update({ installRequestedBy: null, installRequestedByName: null, installRequestedAt: null });
     });
   },
 
   getUsersForFilter: function() {
     return this._ready().then(function() {
       if (currentUser.role === 'supervisor') {
-        return db.collection('users').where('cluster', '==', currentUser.cluster).get()
-          .then(function(snap) { return snap.docs.map(function(d) { return { id: d.id, fullName: d.data().fullName }; }); });
+        return db.collection('users').where('cluster', '==', currentUser.cluster).get().then(function(snap) { return snap.docs.map(function(d) { return { id: d.id, fullName: d.data().fullName }; }); });
       }
       return [{ id: currentUser.id, fullName: currentUser.fullName }];
     });
   },
 
-  hasAnyUsers: function() {
-    return this._ready().then(function() {
-      return db.collection('users').limit(1).get().then(function(snap) { return !snap.empty; });
-    });
-  }
+  hasAnyUsers: function() { return this._ready().then(function() { return db.collection('users').limit(1).get().then(function(snap) { return !snap.empty; }); }); }
 };
 
 function initFirebase(cfg) {
   return new Promise(function(resolve, reject) {
     try {
-      if (typeof firebase === 'undefined' || !firebase.initializeApp) throw new Error('Firebase SDK is not loaded.');
-      if (firebase.apps && firebase.apps.length > 0) {
-        firebase.apps.forEach(function(app) { try { app.delete(); } catch(e) {} });
+      if (typeof firebase === 'undefined' || !firebase.initializeApp) throw new Error('Firebase SDK not loaded.');
+      // Safe check to prevent "already exists" errors
+      if (!firebase.apps || firebase.apps.length === 0) {
+        firebase.initializeApp(cfg);
       }
-      firebase.initializeApp(cfg);
       db = firebase.firestore();
-      if (db.enablePersistence) {
-        db.enablePersistence({ synchronizeTabs: true }).catch(function(err) {
-          if (err.code === 'failed-precondition') console.warn('Firestore persistence failed: Multiple tabs open.');
-          else if (err.code === 'unimplemented') console.warn('Firestore persistence not supported in this browser.');
-        });
-      }
+      if (db.enablePersistence) db.enablePersistence({ synchronizeTabs: true }).catch(function(err) { console.warn('Persistence:', err.code); });
       setTimeout(resolve, 300);
     } catch (error) { reject(error); }
   });
 }
 
 /* ================================================================
-   AUTH SCREEN LOGIC
+   AUTH
 ================================================================ */
-function showAuth() {
-  $('#authScreen').style.display = 'flex';
-  $('#app').classList.remove('active');
-}
+function showAuth() { $('#authScreen').style.display = 'flex'; $('#app').classList.remove('active'); }
+function showAuthError(msg) { var e = $('#authError'); e.textContent = msg; e.style.display = 'block'; setTimeout(function() { e.style.display = 'none'; }, 5000); }
 
-function showAuthError(msg) {
-  var e = $('#authError'); e.textContent = msg; e.style.display = 'block';
-  setTimeout(function() { e.style.display = 'none'; }, 5000);
-}
-
- $('#goToRegister').onclick = function() { $('#loginForm').style.display = 'none'; $('#registerForm').style.display = 'block'; 
-loadSupervisors();
-};
+ $('#goToRegister').onclick = function() { $('#loginForm').style.display = 'none'; $('#registerForm').style.display = 'block'; loadSupervisors(); };
  $('#goToLogin').onclick = function() { $('#registerForm').style.display = 'none'; $('#resetForm').style.display = 'none'; $('#loginForm').style.display = 'block'; };
  $('#goToReset').onclick = function() { $('#loginForm').style.display = 'none'; $('#resetForm').style.display = 'block'; };
  $('#goToLoginFromReset').onclick = function() { $('#resetForm').style.display = 'none'; $('#loginForm').style.display = 'block'; };
 
-   $('#regRole').addEventListener('change', function() {
-  if (this.value === 'installer') {
-    $('#supervisorField').style.display = 'block';
-    // Reload supervisors if the dropdown is still showing the loading/empty state
-    if ($('#regSupervisor').options.length <= 1) {
-      loadSupervisors();
-    }
-  } else {
-    $('#supervisorField').style.display = 'none';
-    $('#regSupervisor').value = ''; // Clear selection
-  }
+ $('#regRole').addEventListener('change', function() {
+  if (this.value === 'installer') { $('#supervisorField').style.display = 'block'; if ($('#regSupervisor').options.length <= 1) loadSupervisors(); }
+  else { $('#supervisorField').style.display = 'none'; $('#regSupervisor').value = ''; }
 });
 
 function loadSupervisors() {
-  var sel = $('#regSupervisor');
-  sel.innerHTML = '<option value="">Loading supervisors...</option>';
-  
-  if (!db) {
-    sel.innerHTML = '<option value="">Error: DB not initialized</option>';
-    return;
-  }
-
-  db.collection('users').where('role', '==', 'supervisor').get()
-    .then(function(querySnapshot) {
-      if (querySnapshot.empty) {
-        sel.innerHTML = '<option value="">No supervisors found</option>';
-        return;
-      }
-      
-      sel.innerHTML = '<option value="">-- Select a Supervisor --</option>';
-      querySnapshot.forEach(function(doc) {
-        var sup = doc.data();
-        var opt = document.createElement('option');
-        opt.value = doc.id; // Save the supervisor's User ID
-        opt.textContent = sup.fullName + (sup.cluster ? ' (' + sup.cluster + ')' : '');
-        sel.appendChild(opt);
-      });
-    })
-    .catch(function(err) {
-      console.error("Error fetching supervisors:", err);
-      sel.innerHTML = '<option value="">Error loading supervisors</option>';
-    });
+  var sel = $('#regSupervisor'); sel.innerHTML = '<option value="">Loading supervisors...</option>';
+  if (!db) { sel.innerHTML = '<option value="">Error</option>'; return; }
+  db.collection('users').where('role', '==', 'supervisor').get().then(function(qs) {
+    if (qs.empty) { sel.innerHTML = '<option value="">No supervisors found</option>'; return; }
+    sel.innerHTML = '<option value="">-- Select a Supervisor --</option>';
+    qs.forEach(function(doc) { var s = doc.data(); var o = document.createElement('option'); o.value = doc.id; o.textContent = s.fullName + (s.cluster ? ' (' + s.cluster + ')' : ''); sel.appendChild(o); });
+  }).catch(function() { sel.innerHTML = '<option value="">Error loading supervisors</option>'; });
 }
 
- $('#regSupervisor').onchange = function() {
-  var selected = this.options[this.selectedIndex];
-  $('#regCluster').value = selected.getAttribute('data-cluster') || '';
-};
+ $('#regSupervisor').onchange = function() { var selected = this.options[this.selectedIndex]; $('#regCluster').value = selected.getAttribute('data-cluster') || ''; };
 
- $('#registerBtn').onclick = function() {
+  $('#registerBtn').onclick = function() {
   var fn = $('#regName').value.trim();
   var ctSuffix = $('#regContact').value.trim();
   var ct = '097898' + ctSuffix;
@@ -982,7 +1276,7 @@ function loadSupervisors() {
   var cl = $('#regCluster').value.trim();
   var pw = $('#regPassword').value;
   var supId = null;
-
+  
   if (!fn || !ctSuffix || ctSuffix.length !== 4 || pw.length < 4) return showAuthError('Fill all fields. Contact must be 4 digits. Password min 4 chars.');
   
   if (ro === 'installer') {
@@ -992,76 +1286,77 @@ function loadSupervisors() {
   } else {
     if (!cl) return showAuthError('Please enter a cluster name.');
   }
-
+  
   showLoading();
   DB.getUserByContact(ct).then(function(existing) {
     if (existing) { hideLoading(); return showAuthError('Contact number already registered.'); }
-    return DB.createUser({ 
-      fullName: fn, contact: ct, role: ro, cluster: cl, 
-      supervisorId: supId, password: hashPassword(pw) 
-    }).then(function() {
-      hideLoading();
-      toast('Account created — sign in now');
-      $('#goToLogin').click();
-      $('#loginContact').value = ctSuffix;
+    
+    // NEW: If registering as supervisor, check if cluster already has one
+    if (ro === 'supervisor') {
+      return db.collection('users').where('cluster', '==', cl).where('role', '==', 'supervisor').get().then(function(snap) {
+        if (!snap.empty) {
+          hideLoading();
+          return showAuthError('Cluster "' + cl + '" already has a supervisor. Register as an installer instead.');
+        }
+        // Cluster is free, proceed with creation
+        return DB.createUser({ fullName: fn, contact: ct, role: ro, cluster: cl, supervisorId: supId, password: hashPassword(pw) }).then(function() {
+          hideLoading(); toast('Supervisor account created — sign in now'); $('#goToLogin').click(); $('#loginContact').value = ctSuffix;
+        });
+      });
+    }
+    
+    // Installer registration
+    return DB.createUser({ fullName: fn, contact: ct, role: ro, cluster: cl, supervisorId: supId, password: hashPassword(pw) }).then(function() {
+      hideLoading(); toast('Account created — sign in now'); $('#goToLogin').click(); $('#loginContact').value = ctSuffix;
     });
-  }).catch(function(err) {
-    hideLoading();
-    showAuthError('Registration failed: ' + err.message);
-  });
+  }).catch(function(err) { hideLoading(); showAuthError('Registration failed: ' + err.message); });
 };
 
  $('#loginBtn').onclick = function() {
-  var ctSuffix = $('#loginContact').value.trim();
-  var pw = $('#loginPassword').value;
+  var ctSuffix = $('#loginContact').value.trim(), pw = $('#loginPassword').value;
   if (!ctSuffix || ctSuffix.length !== 4 || !pw) return showAuthError('Enter 4-digit contact suffix and password.');
-  var ct = '097898' + ctSuffix;
-  
-  showLoading();
+  var ct = '097898' + ctSuffix; showLoading();
   DB.getUserByContact(ct).then(function(user) {
-    hideLoading();
-    if (!user) return showAuthError('Invalid contact number or password.');
-    
-    // FIX: Handle legacy plain text passwords AND hashed passwords
+    hideLoading(); if (!user) return showAuthError('Invalid contact number or password.');
     var hashedPw = hashPassword(pw);
-    if (user.password !== hashedPw && user.password !== pw) {
-      return showAuthError('Invalid contact number or password.');
-    }
-    
-    // Upgrade old plain text password to hashed password
-    if (user.password === pw && pw.length >= 4) {
-      DB.updateUser(user.id, { password: hashPassword(pw) }).catch(function(e) { console.warn('Failed to hash legacy password', e); });
-    }
-    
-    sessionStorage.setItem('airtel_session', JSON.stringify({ id: user.id, ts: Date.now() }));
-    startApp(user);
-  }).catch(function(err) {
-    hideLoading();
-    showAuthError('Login failed: ' + err.message);
-  });
+    if (user.password !== hashedPw && user.password !== pw) return showAuthError('Invalid contact number or password.');
+    if (user.password === pw && pw.length >= 4) DB.updateUser(user.id, { password: hashPassword(pw) }).catch(function() {});
+    sessionStorage.setItem('airtel_session', JSON.stringify({ id: user.id, ts: Date.now() })); startApp(user);
+  }).catch(function(err) { hideLoading(); showAuthError('Login failed: ' + err.message); });
 };
 
- $('#resetBtn').onclick = function() {
+   $('#resetBtn').onclick = function() {
   var ctSuffix = $('#resetContact').value.trim();
   var newPw = $('#resetPassword').value;
   if (!ctSuffix || ctSuffix.length !== 4 || newPw.length < 4) return showAuthError('Enter 4-digit contact suffix and new password (min 4 chars).');
   var ct = '097898' + ctSuffix;
-
+  
   showLoading();
   DB.getUserByContact(ct).then(function(user) {
     if (!user) { hideLoading(); return showAuthError('No account found with this contact number.'); }
-    return DB.updateUser(user.id, { password: hashPassword(newPw) }).then(function() {
-      hideLoading();
-      toast('Password reset successful', 'success');
-      $('#goToLoginFromReset').click();
-      $('#resetContact').value = '';
+    
+    if (user.resetRequestedAt) {
+      hideLoading(); return showAuthError('You already have a pending reset request. Please wait for approval.');
+    }
+    
+    // EVERYONE must request approval (No more instant supervisor bypass)
+    return DB.updateUser(user.id, { 
+      pendingPassword: hashPassword(newPw), 
+      resetRequestedAt: Date.now() 
+    }).then(function() {
+      hideLoading(); 
+      if (user.role === 'supervisor') {
+        toast('Reset Requested!', 'info', 'Another supervisor must approve your reset request.');
+      } else {
+        toast('Reset Requested!', 'info', 'Your supervisor must approve your new password.');
+      }
+      $('#goToLoginFromReset').click(); 
+      $('#resetContact').value = ''; 
       $('#resetPassword').value = '';
     });
-  }).catch(function(err) {
-    hideLoading();
-    showAuthError('Reset failed: ' + err.message);
-  });
+  }).catch(function(err) { hideLoading(); showAuthError('Reset failed: ' + err.message); });
 };
+
 
  $('#loginPassword').addEventListener('keydown', function(e) { if (e.key === 'Enter') $('#loginBtn').click(); });
 
@@ -1070,28 +1365,30 @@ function loadSupervisors() {
 ================================================================ */
 function startApp(user) {
   currentUser = user;
-  $('#authScreen').style.display = 'none';
-  $('#app').classList.add('active');
+  $('#authScreen').style.display = 'none'; $('#app').classList.add('active');
   $('#userName').textContent = user.fullName;
   $('#userRole').textContent = user.role.charAt(0).toUpperCase() + user.role.slice(1) + ' · ' + user.cluster;
   $('#userAvatar').textContent = user.fullName.split(' ').map(function(p) { return p[0]; }).slice(0, 2).join('').toUpperCase();
   $('#profileProjectId').textContent = FIREBASE_CONFIG.projectId;
   $('#profileConnStatus').textContent = isOnline ? 'Online' : 'Offline';
   navigate('dashboard');
-
-if (!localStorage.getItem('tour_completed_' + user.id)) {
-    setTimeout(startTour, 800); // Wait 800ms for dashboard to load
-  }
+  if (!localStorage.getItem('tour_completed_' + user.id)) setTimeout(startTour, 800);
+  startNotifListener();
+startUserNotifListener();
+initFCM();
 }
 
 function logout() {
   stopScanner();
   if (dashboardUnsub) { dashboardUnsub(); dashboardUnsub = null; }
+  if (notifUnsub) { notifUnsub(); notifUnsub = null; }
+if (userNotifUnsub1) { userNotifUnsub1(); userNotifUnsub1 = null; } 
+  if (userNotifUnsub2) { userNotifUnsub2(); userNotifUnsub2 = null; }
+updateAppBadge(0); // Clear the app badge
+startNotifListener._lastCount = -1;
   sessionStorage.removeItem('airtel_session');
-  currentUser = null; cachedDevices = []; pendingScans = []; quickLogItems = []; scanMode = 'scan';
-  $('#app').classList.remove('active');
-  showAuth();
-  $('#loginPassword').value = '';
+  currentUser = null; cachedDevices = []; pendingScans = []; quickLogItems = []; scanMode = 'scan'; crossInstallDevice = null;
+  $('#app').classList.remove('active'); showAuth(); $('#loginPassword').value = '';
 }
 
  $('#logoutBtn').onclick = logout;
@@ -1105,26 +1402,286 @@ function navigate(view) {
   $('#view-' + view).classList.add('active');
   document.querySelectorAll('[data-view="' + view + '"]').forEach(function(n) { n.classList.add('active'); });
   $('#pageTitle').textContent = titles[view] || '';
-
   if (view !== 'add') stopScanner();
-  if (view === 'add' && scanMode === 'scan') { setTimeout(startScanner, 300); }
-
-  if (view === 'dashboard') {
-    if (dashboardUnsub) dashboardUnsub();
-    dashboardUnsub = DB.onDevicesChange(function(devs) { renderDashboard(devs); });
-  } else {
-    if (dashboardUnsub) { dashboardUnsub(); dashboardUnsub = null; }
-  }
-
+  if (view === 'add' && scanMode === 'scan') setTimeout(startScanner, 300);
+  if (view === 'dashboard') { if (dashboardUnsub) dashboardUnsub(); dashboardUnsub = DB.onDevicesChange(function(devs) { renderDashboard(devs); }); }
+  else { if (dashboardUnsub) { dashboardUnsub(); dashboardUnsub = null; } }
   if (view === 'all') { currentPage = 1; loadAllDevices(); }
   if (view === 'profile') renderProfile();
 }
 
- $$('.nav-item[data-view],.m-nav-item[data-view]').forEach(function(n) {
-  n.onclick = function() { navigate(n.dataset.view); };
+ $$('.nav-item[data-view],.m-nav-item[data-view]').forEach(function(n) { n.onclick = function() { navigate(n.dataset.view); }; });
+var gba = $('[data-goto="all"]'); if (gba) gba.addEventListener('click', function() { navigate('all'); });
+
+/* ================================================================
+   NOTIFICATION & APPROVAL
+================================================================ */
+function startNotifListener() {
+  if (!db || !currentUser) return;
+  if (notifUnsub) notifUnsub();
+  try {
+    var query = db.collection('devices').where('collectedBy', '==', currentUser.id);
+    notifUnsub = query.onSnapshot(function(snap) {
+      var requests = snap.docs.filter(function(doc) {
+        var d = doc.data();
+        return d.installed === false && d.installRequestedAt != null && d.installRequestedAt > 0;
+      });
+      var count = requests.length;
+
+      // Update bell icon badge
+      var badge = $('#notifCount');
+      if (count > 0) { badge.style.display = 'flex'; badge.textContent = count; }
+      else { badge.style.display = 'none'; }
+
+      // Update app icon badge (home screen / taskbar)
+      updateAppBadge(count);
+
+      // Play chime sound ONLY for NEW requests (count increased)
+      if (count > (startNotifListener._lastCount || 0) && startNotifListener._lastCount >= 0) {
+        playNotifChime();
+        // Also show an in-app toast
+        if (count > 0) {
+          toast('New Installation Request', 'info', count + ' pending request' + (count > 1 ? 's' : '') + ' to review');
+        }
+      }
+      startNotifListener._lastCount = count;
+
+      // Refresh approvals modal if open
+      if ($('#approvalsModal').classList.contains('open')) renderApprovalsList(requests);
+    }, function(err) { console.warn('Notif listener error:', err); });
+  } catch(err) { console.warn('startNotifListener failed:', err); }
+}
+startNotifListener._lastCount = -1; // -1 means first load, don't play sound
+
+function renderApprovalsList(docsOrArray) {
+  if (!docsOrArray || docsOrArray.length === 0) { $('#installReqsList').innerHTML = '<div class="empty" style="padding:30px"><div class="ico">✅</div>No pending requests</div>'; return; }
+  var html = '';
+  docsOrArray.forEach(function(item) {
+    var id, d;
+    if (item.id && item.data) { id = item.id; d = item.data(); }
+    else { id = item.id; d = item; }
+    if (!d) return;
+    html += '<div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;background:var(--amber-light)">';
+    html += '<div style="font-weight:700;font-size:14px;margin-bottom:6px;font-family:monospace">' + (d.serial || '—') + '</div>';
+    html += '<div style="font-size:12px;color:var(--amber-dark);margin-bottom:12px">';
+    html += '<strong>' + (d.installRequestedByName || 'Someone') + '</strong> requested to install this device<br>';
+    html += '<small>' + fmt(d.installRequestedAt) + '</small></div>';
+    html += '<div style="display:flex;gap:8px">';
+    html += '<button class="btn btn-green btn-sm" style="flex:1" data-approve="' + id + '" data-reqid="' + (d.installRequestedBy || '') + '" data-reqname="' + (d.installRequestedByName || '') + '">Approve</button>';
+    html += '<button class="btn btn-outline btn-sm" style="flex:1;border-color:var(--red-400);color:var(--red-600)" data-reject="' + id + '">Reject</button>';
+    html += '</div></div>';
+  });
+  $('#installReqsList').innerHTML = html;
+}
+
+ $('#installReqsList').addEventListener('click', function(e) {
+  var approveBtn = e.target.closest('[data-approve]');
+  var rejectBtn = e.target.closest('[data-reject]');
+  if (approveBtn) {
+    showLoading();
+    DB.approveInstall(approveBtn.dataset.approve, approveBtn.dataset.reqid, approveBtn.dataset.reqname).then(function() {
+      hideLoading(); toast('Installation Approved!', 'success', approveBtn.dataset.reqname + ' can now see it as installed.');
+    }).catch(function(err) { hideLoading(); toast('Approval failed: ' + err.message, 'error'); });
+  }
+  if (rejectBtn) {
+    showLoading();
+    DB.rejectInstall(rejectBtn.dataset.reject).then(function() { hideLoading(); toast('Request Rejected', 'info'); }).catch(function(err) { hideLoading(); toast('Rejection failed: ' + err.message, 'error'); });
+  }
 });
-var gba = $('[data-goto="all"]');
-if (gba) gba.addEventListener('click', function() { navigate('all'); });
+
+    $('#notifBtn').onclick = function() {
+  if ('Notification' in window && Notification.permission === 'default' && messaging) {
+    requestNotifPermission();
+  }
+  
+  // Reset to Install Requests tab
+  $('#tabInstallReqs').click();
+  
+  try {
+    db.collection('devices').where('collectedBy', '==', currentUser.id).get().then(function(snap) {
+      var requests = snap.docs.filter(function(doc) { var d = doc.data(); return d.installed === false && d.installRequestedAt != null && d.installRequestedAt > 0; });
+      renderApprovalsList(requests);
+      
+      // Load password resets from the live cache
+      if (currentUser.role === 'supervisor') {
+        var resetList = Object.values(window._passwordResetRequests || {});
+        renderPasswordResets(resetList);
+        $('#approvalsModal').classList.add('open');
+      } else {
+        $('#approvalsModal').classList.add('open');
+      }
+    });
+  } catch(err) { toast('Failed to load requests', 'error'); }
+};
+
+
+ $('#approvalsClose').onclick = function() { $('#approvalsModal').classList.remove('open'); };
+ $('#approvalsModal').addEventListener('click', function(e) { if (e.target === this) this.classList.remove('open'); });
+
+/* ================================================================
+   PASSWORD RESET APPROVAL SYSTEM
+================================================================ */
+var userNotifUnsub1 = null;
+var userNotifUnsub2 = null;
+window._passwordResetRequests = {};
+
+function startUserNotifListener() {
+  if (!db || !currentUser || currentUser.role !== 'supervisor') return;
+  if (userNotifUnsub1) userNotifUnsub1();
+  if (userNotifUnsub2) userNotifUnsub2();
+  window._passwordResetRequests = {};
+  
+  var renderFn = function() {
+    var list = Object.values(window._passwordResetRequests);
+    if ($('#passwordReqsList').style.display !== 'none') {
+      renderPasswordResets(list);
+    }
+    updateBellCount();
+  };
+  
+  try {
+    // Listener 1: Installers in my cluster
+    var q1 = db.collection('users').where('cluster', '==', currentUser.cluster);
+    userNotifUnsub1 = q1.onSnapshot(function(snap) {
+      // Remove old cluster entries from cache
+      Object.keys(window._passwordResetRequests).forEach(function(key) {
+        if (window._passwordResetRequests[key].cluster === currentUser.cluster) {
+          delete window._passwordResetRequests[key];
+        }
+      });
+      snap.forEach(function(doc) {
+        var d = doc.data();
+        if (d.resetRequestedAt != null && d.resetRequestedAt > 0 && doc.id !== currentUser.id) {
+          var obj = d; obj.id = doc.id;
+          window._passwordResetRequests[doc.id] = obj;
+        }
+      });
+      renderFn();
+    });
+
+    // Listener 2: Other supervisors (any cluster)
+    var q2 = db.collection('users').where('role', '==', 'supervisor');
+    userNotifUnsub2 = q2.onSnapshot(function(snap) {
+      // Remove old supervisor entries from cache
+      Object.keys(window._passwordResetRequests).forEach(function(key) {
+        if (window._passwordResetRequests[key].role === 'supervisor') {
+          delete window._passwordResetRequests[key];
+        }
+      });
+      snap.forEach(function(doc) {
+        var d = doc.data();
+        if (d.resetRequestedAt != null && d.resetRequestedAt > 0 && doc.id !== currentUser.id) {
+          var obj = d; obj.id = doc.id;
+          window._passwordResetRequests[doc.id] = obj;
+        }
+      });
+      renderFn();
+    });
+  } catch(err) { console.warn('startUserNotifListener failed:', err); }
+}
+
+function updateBellCount() {
+  // Count install requests
+  var installReqs = cachedDevices.filter(function(d) {
+    return !d.installed && d.installRequestedAt != null && d.installRequestedAt > 0;
+  });
+  
+  // Count password resets (fetch from cache or estimate — listener handles live)
+  db.collection('users').where('cluster', '==', currentUser.cluster).get().then(function(snap) {
+    var resetReqs = snap.docs.filter(function(doc) { return doc.data().resetRequestedAt != null && doc.data().resetRequestedAt > 0; });
+    var totalCount = installReqs.length + resetReqs.length;
+    
+    var badge = $('#notifCount');
+    if (totalCount > 0) { badge.style.display = 'flex'; badge.textContent = totalCount; }
+    else { badge.style.display = 'none'; }
+    updateAppBadge(totalCount);
+  }).catch(function() {});
+}
+
+function renderPasswordResets(docsOrArray) {
+  if (!docsOrArray || docsOrArray.length === 0) { 
+    $('#passwordReqsList').innerHTML = '<div class="empty" style="padding:30px"><div class="ico">🔐</div>No pending password resets</div>'; 
+    return; 
+  }
+  var html = '';
+  docsOrArray.forEach(function(item) {
+    var id, d;
+    if (item.id && item.data) { id = item.id; d = item.data(); }
+    else { id = item.id; d = item; }
+    if (!d) return;
+    
+    var isSupervisor = d.role === 'supervisor';
+    var borderColor = isSupervisor ? '#7c3aed' : '#2563eb'; // Purple for supervisor, blue for installer
+    var bgColor = isSupervisor ? '#f3e8ff' : '#dbeafe'; 
+    var textColor = isSupervisor ? '#6b21a8' : '#1e40af';
+    var roleLabel = isSupervisor ? '⭐ Supervisor' : '👷 Installer';
+    
+    html += '<div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;background:'+bgColor+';border-left:4px solid '+borderColor+'">';
+    html += '<div style="font-weight:700;font-size:14px;margin-bottom:6px">' + (d.fullName || 'Unknown User') + '</div>';
+    html += '<div style="font-size:12px;color:'+textColor+';margin-bottom:12px">';
+    html += '<strong>' + (d.contact || '—') + '</strong> · ' + roleLabel + ' · ' + (d.cluster || '—') + '<br>';
+    html += 'Requested password reset <small>' + fmt(d.resetRequestedAt) + '</small>';
+    html += '</div>';
+    html += '<div style="display:flex;gap:8px">';
+    html += '<button class="btn btn-green btn-sm" style="flex:1" data-approvepw="' + id + '">Approve Reset</button>';
+    html += '<button class="btn btn-outline btn-sm" style="flex:1;border-color:var(--red-400);color:var(--red-600)" data-rejectpw="' + id + '">Reject</button>';
+    html += '</div></div>';
+  });
+  $('#passwordReqsList').innerHTML = html;
+}
+
+// Tab switching in Approvals Modal
+ $('#tabInstallReqs').onclick = function() {
+  $('#installReqsList').style.display = 'block';
+  $('#passwordReqsList').style.display = 'none';
+  this.className = 'btn btn-sm'; this.style.cssText = 'flex:1;justify-content:center;background:var(--amber);color:#fff';
+  $('#tabPasswordReqs').className = 'btn btn-outline btn-sm'; $('#tabPasswordReqs').style.cssText = 'flex:1;justify-content:center;';
+};
+
+ $('#tabPasswordReqs').onclick = function() {
+  $('#installReqsList').style.display = 'none';
+  $('#passwordReqsList').style.display = 'block';
+  this.className = 'btn btn-sm'; this.style.cssText = 'flex:1;justify-content:center;background:#2563eb;color:#fff';
+  $('#tabInstallReqs').className = 'btn btn-outline btn-sm'; $('#tabInstallReqs').style.cssText = 'flex:1;justify-content:center;';
+};
+
+// Handle Approve/Reject password resets
+ $('#passwordReqsList').addEventListener('click', function(e) {
+  var approveBtn = e.target.closest('[data-approvepw]');
+  var rejectBtn = e.target.closest('[data-rejectpw]');
+  
+  if (approveBtn) {
+    var userId = approveBtn.dataset.approvepw;
+    showLoading();
+    // Get the user's pending password
+    db.collection('users').doc(userId).get().then(function(doc) {
+      if (!doc.exists) { hideLoading(); toast('User not found', 'error'); return; }
+      var userData = doc.data();
+      if (!userData.pendingPassword) { hideLoading(); toast('No pending password found', 'error'); return; }
+      
+      // Apply the new password and clear the request
+      return DB.updateUser(userId, { 
+        password: userData.pendingPassword, 
+        pendingPassword: firebase.firestore.FieldValue.delete(),
+        resetRequestedAt: firebase.firestore.FieldValue.delete()
+      }).then(function() {
+        hideLoading();
+        toast('Password Reset Approved!', 'success', userData.fullName + ' can now log in with their new password.');
+      });
+    }).catch(function(err) { hideLoading(); toast('Approval failed: ' + err.message, 'error'); });
+  }
+  
+  if (rejectBtn) {
+    var userId = rejectBtn.dataset.rejectpw;
+    showLoading();
+    DB.updateUser(userId, { 
+      pendingPassword: firebase.firestore.FieldValue.delete(),
+      resetRequestedAt: firebase.firestore.FieldValue.delete()
+    }).then(function() {
+      hideLoading(); toast('Reset Request Rejected', 'info');
+    }).catch(function(err) { hideLoading(); toast('Rejection failed: ' + err.message, 'error'); });
+  }
+});
 
 /* ================================================================
    DASHBOARD
@@ -1133,59 +1690,44 @@ function renderDashboard(devs) {
   if (!devs) devs = cachedDevices;
   var installedCount = devs.filter(function(d) { return d.installed; }).length;
   var pendingCount = devs.length - installedCount;
-
   var cards = [
     { num: devs.length, lbl: 'Total Collected', cls: 'red', ico: '<svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect><polyline points="17 2 12 7 7 2"></polyline></svg>', card: 'red-card' },
     { num: installedCount, lbl: 'Installed', cls: 'green', ico: '<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>', card: 'green-card' },
     { num: pendingCount, lbl: 'Pending Install', cls: 'amber', ico: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>', card: 'amber-card' }
   ];
-  $('#statsGrid').innerHTML = cards.map(function(c) {
-    return '<div class="stat-card ' + c.card + '"><div class="stat-icon ' + c.cls + '">' + c.ico + '</div><div class="stat-info"><div class="num">' + c.num + '</div><div class="lbl">' + c.lbl + '</div></div></div>';
-  }).join('');
+  $('#statsGrid').innerHTML = cards.map(function(c) { return '<div class="stat-card ' + c.card + '"><div class="stat-icon ' + c.cls + '">' + c.ico + '</div><div class="stat-info"><div class="num">' + c.num + '</div><div class="lbl">' + c.lbl + '</div></div></div>'; }).join('');
 
   renderTrendChart(devs);
-
   if (statusChart) statusChart.destroy();
   statusChart = new Chart($('#statusChart'), {
-    type: 'doughnut',
-    data: { labels: ['Installed', 'Pending Install'], datasets: [{ data: [installedCount, pendingCount], backgroundColor: ['#E40000', '#fca5a5'], borderWidth: 0 }] },
+    type: 'doughnut', data: { labels: ['Installed', 'Pending'], datasets: [{ data: [installedCount, pendingCount], backgroundColor: ['#E40000', '#fca5a5'], borderWidth: 0 }] },
     options: { responsive: true, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } } }
   });
 
   var recent = devs.slice().sort(function(a, b) { return b.createdAt - a.createdAt; }).slice(0, 6);
   $('#recentTable tbody').innerHTML = recent.length ? recent.map(function(d) {
     var rowCls = d.installed ? 'row-installed' : 'row-collected';
-    return '<tr class="' + rowCls + '"><td><strong>' + d.serial + '</strong></td><td>' + (d.cluster || '—') + '</td><td>' + statusBadge(d.installed) + '</td><td>' + (d.collectedByName || '—') + '</td><td>' + fmt(d.collectedAt) + '</td></tr>';
+    var whoInfo = d.collectedByName || '—';
+    if (d.installed && d.installedByName) whoInfo = d.collectedByName + ' → ' + d.installedByName + ' <span style="font-size:10px;color:var(--green)">(installed)</span>';
+    else if (d.installRequestedAt) whoInfo += ' <span style="font-size:10px;color:var(--amber)">(install requested)</span>';
+    return '<tr class="' + rowCls + '"><td><strong>' + d.serial + '</strong></td><td>' + (d.cluster || '—') + '</td><td>' + statusBadge(d.installed) + '</td><td style="font-size:12px">' + whoInfo + '</td><td>' + fmt(d.collectedAt) + '</td></tr>';
   }).join('') : '<tr><td colspan="5" class="empty">No devices yet</td></tr>';
 }
 
 function renderTrendChart(devs) {
   var labels = [], days = [];
-  if (currentRange === '7') {
-    for (var i = 6; i >= 0; i--) { var d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i); var nx = new Date(d); nx.setDate(nx.getDate() + 1); labels.push(d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })); days.push({ start: d.getTime(), end: nx.getTime() }); }
-  } else if (currentRange === '30') {
-    for (var i = 29; i >= 0; i--) { var d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i); var nx = new Date(d); nx.setDate(nx.getDate() + 1); labels.push(d.toLocaleDateString('en-GB', { day: 'numeric' })); days.push({ start: d.getTime(), end: nx.getTime() }); }
-  } else {
-    var now = new Date(); var dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    for (var i = 1; i <= dim; i++) { var d = new Date(now.getFullYear(), now.getMonth(), i); d.setHours(0, 0, 0, 0); var nx = new Date(d); nx.setDate(nx.getDate() + 1); labels.push(i.toString()); days.push({ start: d.getTime(), end: nx.getTime() }); }
-  }
+  if (currentRange === '7') { for (var i = 6; i >= 0; i--) { var d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-i); var nx = new Date(d); nx.setDate(nx.getDate()+1); labels.push(d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric'})); days.push({start:d.getTime(),end:nx.getTime()}); } }
+  else if (currentRange === '30') { for (var i = 29; i >= 0; i--) { var d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-i); var nx = new Date(d); nx.setDate(nx.getDate()+1); labels.push(d.toLocaleDateString('en-GB',{day:'numeric'})); days.push({start:d.getTime(),end:nx.getTime()}); } }
+  else { var now = new Date(); var dim = new Date(now.getFullYear(),now.getMonth()+1,0).getDate(); for (var i = 1; i <= dim; i++) { var d = new Date(now.getFullYear(),now.getMonth(),i); d.setHours(0,0,0,0); var nx = new Date(d); nx.setDate(nx.getDate()+1); labels.push(i.toString()); days.push({start:d.getTime(),end:nx.getTime()}); } }
   var cpd = days.map(function(d) { return devs.filter(function(x) { return x.collectedAt >= d.start && x.collectedAt < d.end; }).length; });
   if (trendChart) trendChart.destroy();
   trendChart = new Chart($('#trendChart'), {
-    type: 'line',
-    data: { labels: labels, datasets: [{ label: 'Collected', data: cpd, borderColor: '#E40000', backgroundColor: 'rgba(228, 0, 0, 0.15)', fill: true, tension: 0.4, borderWidth: 2, pointBackgroundColor: '#E40000', pointRadius: 3 }] },
+    type: 'line', data: { labels: labels, datasets: [{ label: 'Collected', data: cpd, borderColor: '#E40000', backgroundColor: 'rgba(228,0,0,0.15)', fill: true, tension: 0.4, borderWidth: 2, pointBackgroundColor: '#E40000', pointRadius: 3 }] },
     options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
   });
 }
 
- $$('.chart-filters button').forEach(function(btn) {
-  btn.onclick = function() {
-    $$('.chart-filters button').forEach(function(b) { b.classList.remove('active'); });
-    btn.classList.add('active');
-    currentRange = btn.dataset.range;
-    renderTrendChart(cachedDevices);
-  };
-});
+ $$('.chart-filters button').forEach(function(btn) { btn.onclick = function() { $$('.chart-filters button').forEach(function(b) { b.classList.remove('active'); }); btn.classList.add('active'); currentRange = btn.dataset.range; renderTrendChart(cachedDevices); }; });
 
 /* ================================================================
    SCANNER
@@ -1193,430 +1735,431 @@ function renderTrendChart(devs) {
 function startScanner() {
   if (scanMode !== 'scan') return;
   $('#cameraError').style.display = 'none';
-
   var cameraConfig = { facingMode: 'environment' };
-
-  var config = {
-    fps: 15, 
-    aspectRatio: 4 / 3,
-    experimentalFeatures: {
-      useBarCodeDetectorIfSupported: true 
-    },
-
-    qrbox: function(viewfinderWidth, viewfinderHeight) {
-      var minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-      var boxSize = Math.floor(minEdge * 0.7);
-      return { width: boxSize, height: boxSize };
-    },
-
-    videoConstraints: {
-      width: { ideal: 1280 },
-      height: { ideal: 720 },
-      facingMode: 'environment'
-    }
+  var config = { fps: 15, aspectRatio: 4/3, experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+    qrbox: function(vw, vh) { var m = Math.min(vw,vh); var s = Math.floor(m*0.7); return {width:s,height:s}; },
+    videoConstraints: { width: {ideal:1280}, height: {ideal:720}, facingMode: 'environment' }
   };
-
-  if (typeof Html5QrcodeSupportedFormats !== 'undefined') {
-    config.formatsToSupport = [
-      Html5QrcodeSupportedFormats.EAN_13,
-      Html5QrcodeSupportedFormats.EAN_8,
-      Html5QrcodeSupportedFormats.CODE_128,
-      Html5QrcodeSupportedFormats.CODE_39,
-      Html5QrcodeSupportedFormats.CODE_93,
-      Html5QrcodeSupportedFormats.QR_CODE
-    ];
-  }
-
-  if (html5QrCode) {
-    try { 
-      html5QrCode.start(cameraConfig, config, onScanSuccess)
-        .catch(showCameraError); 
-      return; 
-    } catch(e) { /* fall through to re-create */ }
-  }
-
+  if (typeof Html5QrcodeSupportedFormats !== 'undefined') config.formatsToSupport = [Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39,Html5QrcodeSupportedFormats.CODE_93,Html5QrcodeSupportedFormats.QR_CODE];
+  if (html5QrCode) { try { html5QrCode.start(cameraConfig, config, onScanSuccess).catch(showCameraError); return; } catch(e) {} }
   html5QrCode = new Html5Qrcode('qr-reader');
-  html5QrCode.start(cameraConfig, config, onScanSuccess)
-    .catch(showCameraError);
+  html5QrCode.start(cameraConfig, config, onScanSuccess).catch(showCameraError);
 }
 
 function showCameraError(err) {
-  var msg = err.toString();
-  var friendlyMsg = msg;
-  
-  // User-friendly error messages
-  if (msg.includes('NotAllowedError') || msg.includes('Permission denied')) {
-    friendlyMsg = 'Camera access was blocked. Please enable camera permissions in your browser settings to scan barcodes.';
-  } else if (msg.includes('NotFoundError') || msg.includes('DevicesNotFoundError')) {
-    friendlyMsg = 'No camera found on this device. Please use Manual Entry.';
-  } else if (msg.includes('NotReadableError')) {
-    friendlyMsg = 'Camera is already in use by another app. Please close it and try again.';
-  }
-
-  $('#cameraError').style.display = 'block';
-  $('#cameraError').innerHTML = '<strong>Camera Error</strong><br>' + friendlyMsg;
+  var msg = err.toString(); var f = msg;
+  if (msg.includes('NotAllowedError')||msg.includes('Permission denied')) f = 'Camera access was blocked. Please enable camera permissions.';
+  else if (msg.includes('NotFoundError')) f = 'No camera found. Please use Manual Entry.';
+  else if (msg.includes('NotReadableError')) f = 'Camera is already in use by another app.';
+  $('#cameraError').style.display = 'block'; $('#cameraError').innerHTML = '<strong>Camera Error</strong><br>' + f;
 }
 
-function stopScanner() {
-  if (html5QrCode) {
-    try { html5QrCode.stop(); } catch(e) {}
-    try { html5QrCode.clear(); } catch(e) {}
-    html5QrCode = null;
-  }
-}
+function stopScanner() { if (html5QrCode) { try { html5QrCode.stop(); } catch(e) {} try { html5QrCode.clear(); } catch(e) {} html5QrCode = null; } }
 
 function onScanSuccess(decodedText) {
-  var text = decodedText.trim();
-  if (!text) return;
-  
-  // Prevent duplicates
+  var text = decodedText.trim(); if (!text) return;
+  if (onScanSuccess._last === text && Date.now() - onScanSuccess._time < 3000) return;
+  onScanSuccess._last = text; onScanSuccess._time = Date.now();
   if (pendingScans.some(function(p) { return p.serial === text; })) return;
-
-  // Visual success feedback (Flash green)
   var overlay = document.querySelector('.scan-overlay');
-  if (overlay) {
-    overlay.classList.add('success');
-    setTimeout(function() { overlay.classList.remove('success'); }, 300);
-  }
-
-  var localMatch = cachedDevices.find(function(d) { return d.serial === text; });
-  
-  if (localMatch) {
-    if (localMatch.installed) {
-      toast('Already installed', 'info', text + ' — by ' + localMatch.collectedByName);
-      return;
-    }
-    pendingScans.unshift({ serial: text, type: 'install', owner: currentUser.id });
-    beepLow();
-  } else {
-    pendingScans.unshift({ serial: text, type: 'new', owner: currentUser.id });
-    beep();
-  }
-  
-  renderPending();
+  if (overlay) { overlay.classList.add('success'); setTimeout(function() { overlay.classList.remove('success'); }, 300); }
+  processSerial(text);
 }
+onScanSuccess._last = ''; onScanSuccess._time = 0;
 
  $('#torchBtn').onclick = function(e) {
-  e.stopPropagation();
-  if (!html5QrCode) return;
-  try {
-    torchOn = !torchOn;
-    html5QrCode.applyVideoConstraints({ advanced: [{ torch: torchOn }] }).then(function() {
-      $('#torchBtn').classList.toggle('active', torchOn);
-    }).catch(function() { toast('Flashlight not supported on this device', 'error'); torchOn = false; });
-  } catch(err) { toast('Flashlight not supported', 'error'); torchOn = false; }
+  e.stopPropagation(); if (!html5QrCode) return;
+  try { torchOn = !torchOn; html5QrCode.applyVideoConstraints({advanced:[{torch:torchOn}]}).then(function() { $('#torchBtn').classList.toggle('active',torchOn); }).catch(function() { toast('Flashlight not supported','error'); torchOn=false; }); } catch(err) { toast('Flashlight not supported','error'); torchOn=false; }
 };
 
-function renderPending() {
-  if (pendingScans.length === 0) {
-    $('#pendingScans').innerHTML = '<div class="empty" style="padding:20px"><div class="ico">📷</div>No scans yet</div>';
-    return;
-  }
-  $('#pendingScans').innerHTML = pendingScans.map(function(p, i) {
-    if (p.type === 'install') {
-      return '<div class="pending-item install-type"><div class="pending-left"><span>' + p.serial + '</span></div><div class="pending-right"><span class="btn btn-green btn-sm" data-action="process" data-idx="' + i + '">Install</span><button class="pending-remove" data-action="remove" data-idx="' + i + '" title="Remove">&times;</button></div></div>';
+/* ================================================================
+   PROCESS SERIAL — Unified entry for scan & manual
+================================================================ */
+function processSerial(serial) {
+  if (!serial || !serial.trim()) return;
+  serial = serial.trim();
+  if (pendingScans.some(function(p) { return p.serial === serial; })) { toast('Already in pending list.','info'); return; }
+
+  var localMatch = cachedDevices.find(function(d) { return d.serial === serial; });
+
+  if (localMatch) {
+    if (localMatch.installed) { beepLow(); showAlreadyInstalledModal(localMatch); return; }
+    if (localMatch.collectedBy === currentUser.id) { beep(); showOwnCollectedModal(localMatch); return; }
+    else {
+      beep();
+      if (localMatch.installRequestedAt) { toast('Installation already requested','info','Waiting for '+(localMatch.collectedByName||'the collector')+' to approve.'); }
+      else { showCrossInstallModal(localMatch); }
+      return;
     }
-    return '<div class="pending-item"><div class="pending-left"><span>' + p.serial + '</span></div><div class="pending-right"><span class="btn btn-red btn-sm" data-action="process" data-idx="' + i + '">Save</span><button class="pending-remove" data-action="remove" data-idx="' + i + '" title="Remove">&times;</button></div></div>';
+  }
+
+  showLoading();
+  DB.findDeviceBySerialGlobal(serial).then(function(existing) {
+    hideLoading();
+    if (existing) {
+      if (existing.installed) { beepLow(); showAlreadyInstalledModal(existing); return; }
+      if (existing.cluster === currentUser.cluster) {
+        beep();
+        if (existing.installRequestedAt) { toast('Installation already requested','info','Waiting for '+(existing.collectedByName||'the collector')+' to approve.'); }
+        else { showCrossInstallModal(existing); }
+      } else { beepLow(); toast('Device already collected by '+(existing.collectedByName||'another installer')+' in cluster '+existing.cluster,'error'); }
+      return;
+    }
+    beep();
+    pendingScans.unshift({ serial: serial, type: 'new', owner: currentUser.id });
+    renderPending();
+  }).catch(function(err) { hideLoading(); toast('Error checking device.','error'); console.error(err); });
+}
+
+function renderPending() {
+  if (pendingScans.length === 0) { $('#pendingScans').innerHTML = '<div class="empty" style="padding:20px"><div class="ico">📷</div>No scans yet</div>'; return; }
+  $('#pendingScans').innerHTML = pendingScans.map(function(p, i) {
+    if (p.type === 'cross-install') {
+      var collectorName = (p.device && p.device.collectedByName) ? p.device.collectedByName : 'Another installer';
+      var alreadyRequested = (p.device && p.device.installRequestedAt);
+      var actionBtn = alreadyRequested ? '<span style="font-size:11px;color:var(--amber);font-weight:600">⏳ Requested</span>' : '<span class="btn btn-sm" style="background:var(--amber);color:#fff" data-action="process" data-idx="'+i+'">Request</span>';
+      return '<div class="pending-item install-type" style="border-left-color:var(--amber)"><div class="pending-left"><span>'+p.serial+'</span><span style="font-size:10px;color:var(--amber-dark)">Collected by '+collectorName+'</span></div><div class="pending-right">'+actionBtn+'<button class="pending-remove" data-action="remove" data-idx="'+i+'">&times;</button></div></div>';
+    }
+    if (p.type === 'install') return '<div class="pending-item install-type"><div class="pending-left"><span>'+p.serial+'</span></div><div class="pending-right"><span class="btn btn-green btn-sm" data-action="process" data-idx="'+i+'">Install</span><button class="pending-remove" data-action="remove" data-idx="'+i+'">&times;</button></div></div>';
+    return '<div class="pending-item"><div class="pending-left"><span>'+p.serial+'</span></div><div class="pending-right"><span class="btn btn-red btn-sm" data-action="process" data-idx="'+i+'">Save</span><button class="pending-remove" data-action="remove" data-idx="'+i+'">&times;</button></div></div>';
   }).join('');
 }
 
  $('#pendingScans').addEventListener('click', function(e) {
-  var btn = e.target.closest('[data-action]');
-  if (!btn) return;
-  var idx = parseInt(btn.dataset.idx, 10);
-  var action = btn.dataset.action;
+  var btn = e.target.closest('[data-action]'); if (!btn) return;
+  var idx = parseInt(btn.dataset.idx, 10); var action = btn.dataset.action;
   if (action === 'process') {
-    var item = pendingScans[idx];
-    if (!item) return;
-    if (item.type === 'install') markInstalled(item.serial);
+    var item = pendingScans[idx]; if (!item) return;
+    if (item.type === 'cross-install') showCrossInstallModal(item.device || item.serial);
+    else if (item.type === 'install') markInstalled(item.serial);
     else saveNew(item.serial);
   }
   if (action === 'remove') { pendingScans.splice(idx, 1); renderPending(); }
 });
 
 function saveNew(serial) {
-  pendingScans = pendingScans.filter(function(p) { return p.serial !== serial; });
-  renderPending();
-  showLoading();
-  DB.findDeviceBySerial(serial).then(function(existing) {
-    if (existing) {
-      hideLoading();
-      toast('Already in database', 'error', (existing.collectedByName || 'Unknown') + ' · ' + fmt(existing.collectedAt));
-      return;
-    }
-    return DB.addDevice({ serial: serial, cluster: currentUser.cluster, collectedBy: currentUser.id, collectedByName: currentUser.fullName }).then(function() {
-      hideLoading();
-      toast('Collected: ' + serial, 'success', 'Status: Pending Install');
-      addQuickLog(serial, 'Collected');
-    });
-  }).catch(function(err) { hideLoading(); toast('Save failed: ' + err.message, 'error'); });
+  pendingScans = pendingScans.filter(function(p) { return p.serial !== serial; }); renderPending(); showLoading();
+  DB.findDeviceBySerialGlobal(serial).then(function(existing) {
+    if (existing) { hideLoading(); if (existing.installed) showAlreadyInstalledModal(existing); else if (existing.cluster === currentUser.cluster) showCrossInstallModal(existing); else toast('Device already collected by '+(existing.collectedByName||'another')+' in cluster '+existing.cluster,'error'); return; }
+    return DB.addDevice({ serial: serial, cluster: currentUser.cluster, collectedBy: currentUser.id, collectedByName: currentUser.fullName }).then(function() { hideLoading(); toast('Collected: '+serial,'success','Status: Pending Install'); addQuickLog(serial,'Collected'); });
+  }).catch(function(err) { hideLoading(); toast('Save failed: '+err.message,'error'); });
 }
 
 function markInstalled(serial) {
-  pendingScans = pendingScans.filter(function(p) { return p.serial !== serial; });
-  renderPending();
-  showLoading();
+  pendingScans = pendingScans.filter(function(p) { return p.serial !== serial; }); renderPending(); showLoading();
   DB.findDeviceBySerial(serial).then(function(device) {
-    if (!device) { hideLoading(); toast('Device not found in your scope', 'error', serial); return; }
-    if (device.installed) { hideLoading(); toast('Already installed', 'info', serial); return; }
-    return DB.updateDevice(device.id, { installed: true, installedAt: Date.now() }).then(function() {
-      hideLoading();
-      toast('Installed: ' + serial, 'success', 'Marked as installed');
-      addQuickLog(serial, 'Installed');
-    });
-  }).catch(function(err) { hideLoading(); toast('Update failed: ' + err.message, 'error'); });
+    if (!device) { hideLoading(); toast('Device not found in your cluster','error',serial); return; }
+    if (device.installed) { hideLoading(); toast('Already installed','info',serial); return; }
+    return DB.updateDevice(device.id, { installed: true, installedAt: Date.now(), installedBy: currentUser.id, installedByName: currentUser.fullName }).then(function() { hideLoading(); toast('Installed: '+serial,'success','Marked as installed'); addQuickLog(serial,'Installed'); });
+  }).catch(function(err) { hideLoading(); toast('Update failed: '+err.message,'error'); });
 }
+
+/* ================================================================
+   MODALS
+================================================================ */
+function showAlreadyInstalledModal(device) {
+  var info = '<strong>IMEI:</strong> '+device.serial+'<br><strong>Collected by:</strong> '+(device.collectedByName||'Unknown')+'<br>';
+  if (device.installedByName) info += '<strong>Installed by:</strong> '+device.installedByName+'<br><strong>Installed at:</strong> '+fmt(device.installedAt)+'<br>';
+  info += '<strong>Cluster:</strong> '+(device.cluster||'—');
+  $('#alreadyInstalledInfo').innerHTML = info; $('#alreadyInstalledModal').classList.add('open');
+}
+ $('#alreadyInstalledClose').onclick = function() { $('#alreadyInstalledModal').classList.remove('open'); };
+ $('#alreadyInstalledOk').onclick = function() { $('#alreadyInstalledModal').classList.remove('open'); };
+
+function showCrossInstallModal(deviceOrSerial) {
+  if (typeof deviceOrSerial === 'string') {
+    showLoading();
+    DB.findDeviceBySerial(deviceOrSerial).then(function(device) {
+      hideLoading(); if (!device) { toast('Device not found','error'); return; } if (device.installed) { showAlreadyInstalledModal(device); return; }
+      if (device.installRequestedAt) { toast('Installation already requested','info','Waiting for '+(device.collectedByName||'the collector')+' to approve.'); return; }
+      _showCrossInstallModalWithDevice(device);
+    }).catch(function(err) { hideLoading(); toast('Lookup failed: '+err.message,'error'); });
+    return;
+  }
+  if (deviceOrSerial && deviceOrSerial.installRequestedAt) { toast('Installation already requested','info','Waiting for '+(deviceOrSerial.collectedByName||'the collector')+' to approve.'); return; }
+  _showCrossInstallModalWithDevice(deviceOrSerial);
+}
+
+function _showCrossInstallModalWithDevice(device) {
+  crossInstallDevice = device;
+  var collectorName = device.collectedByName || 'Unknown Installer';
+  var info = '<strong>IMEI:</strong> '+device.serial+'<br><strong>Collected by:</strong> <span style="font-weight:700;color:var(--red-600)">'+collectorName+'</span><br><strong>Collected at:</strong> '+fmt(device.collectedAt)+'<br><strong>Cluster:</strong> '+(device.cluster||'—');
+  if (device.installRequestedAt) {
+    info += '<br><div style="margin-top:10px;padding:8px 12px;background:#fff;border:1px solid var(--amber);border-radius:8px;color:var(--amber-dark);font-size:12px"><strong>⏳ Request Already Sent</strong><br>Waiting for '+collectorName+' to approve.</div>';
+    $('#crossInstallInfo').innerHTML = info; $('#crossInstallConfirm').style.display = 'none'; $('#crossInstallCancel').textContent = 'OK';
+  } else {
+    $('#crossInstallInfo').innerHTML = info;
+    $('#crossInstallConfirm').innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M22 2L11 13"></path><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg> Request Installation';
+    $('#crossInstallConfirm').style.display = 'inline-flex'; $('#crossInstallCancel').textContent = 'Cancel';
+  }
+  $('#crossInstallModal').classList.add('open');
+}
+
+ $('#crossInstallClose').onclick = function() { $('#crossInstallModal').classList.remove('open'); crossInstallDevice = null; };
+ $('#crossInstallCancel').onclick = function() { $('#crossInstallModal').classList.remove('open'); crossInstallDevice = null; };
+
+ $('#crossInstallConfirm').onclick = function() {
+  if (!crossInstallDevice) { $('#crossInstallModal').classList.remove('open'); return; }
+  var device = crossInstallDevice; $('#crossInstallModal').classList.remove('open'); crossInstallDevice = null;
+  pendingScans = pendingScans.filter(function(p) { return p.serial !== device.serial; }); renderPending();
+  showLoading();
+  DB.findDeviceBySerial(device.serial).then(function(fresh) {
+    if (!fresh) { hideLoading(); toast('Device no longer found','error'); return; }
+    if (fresh.installed) { hideLoading(); toast('Device was already installed','info'); return; }
+    if (fresh.installRequestedAt) { hideLoading(); toast('Installation already requested','info','Waiting for '+(fresh.collectedByName||'the collector')+' to approve.'); return; }
+    return DB.requestInstall(fresh.id).then(function() {
+      hideLoading(); toast('Request Sent!','info','Waiting for '+(fresh.collectedByName||'the collector')+' to approve.'); addQuickLog(fresh.serial,'Request Sent');
+    });
+  }).catch(function(err) { hideLoading(); toast('Request failed: '+err.message,'error'); });
+};
+
+function showOwnCollectedModal(device) {
+  crossInstallDevice = device;
+  var info = '<strong>IMEI:</strong> '+device.serial+'<br><strong>Collected by:</strong> You ('+currentUser.fullName+')<br><strong>Collected at:</strong> '+fmt(device.collectedAt)+'<br><strong>Cluster:</strong> '+(device.cluster||'—');
+  $('#ownCollectedInfo').innerHTML = info; $('#ownCollectedModal').classList.add('open');
+}
+
+ $('#ownCollectedClose').onclick = function() { $('#ownCollectedModal').classList.remove('open'); crossInstallDevice = null; };
+ $('#ownCollectedCancel').onclick = function() { $('#ownCollectedModal').classList.remove('open'); crossInstallDevice = null; };
+
+ $('#ownCollectedConfirm').onclick = function() {
+  if (!crossInstallDevice) { $('#ownCollectedModal').classList.remove('open'); return; }
+  var device = crossInstallDevice; $('#ownCollectedModal').classList.remove('open'); crossInstallDevice = null;
+  pendingScans = pendingScans.filter(function(p) { return p.serial !== device.serial; }); renderPending();
+  showLoading();
+  DB.findDeviceBySerial(device.serial).then(function(fresh) {
+    if (!fresh) { hideLoading(); toast('Device not found','error'); return; }
+    if (fresh.installed) { hideLoading(); toast('Already installed','info'); return; }
+    return DB.updateDevice(fresh.id, { installed: true, installedAt: Date.now(), installedBy: currentUser.id, installedByName: currentUser.fullName }).then(function() { hideLoading(); toast('Installed: '+fresh.serial,'success','Marked as installed'); addQuickLog(fresh.serial,'Installed'); });
+  }).catch(function(err) { hideLoading(); toast('Install failed: '+err.message,'error'); });
+};
+
+ $('#crossInstallModal').addEventListener('click', function(e) { if (e.target === this) { this.classList.remove('open'); crossInstallDevice = null; } });
+ $('#alreadyInstalledModal').addEventListener('click', function(e) { if (e.target === this) this.classList.remove('open'); });
+ $('#ownCollectedModal').addEventListener('click', function(e) { if (e.target === this) { this.classList.remove('open'); crossInstallDevice = null; } });
 
 function setScanMode(mode) {
   scanMode = mode;
-  if (mode === 'manual') {
-    $('#modeScan').classList.remove('active');
-    $('#modeManual').classList.add('active');
-    $('#scanArea').style.display = 'none';
-    $('#manualArea').style.display = 'block';
-    stopScanner();
-    setTimeout(function() { $('#manualSerial').focus(); }, 100);
-  } else {
-    $('#modeScan').classList.add('active');
-    $('#modeManual').classList.remove('active');
-    $('#scanArea').style.display = 'block';
-    $('#manualArea').style.display = 'none';
-    setTimeout(startScanner, 300);
-  }
+  if (mode === 'manual') { $('#modeScan').classList.remove('active'); $('#modeManual').classList.add('active'); $('#scanArea').style.display = 'none'; $('#manualArea').style.display = 'block'; stopScanner(); setTimeout(function() { $('#manualSerial').focus(); }, 100); }
+  else { $('#modeScan').classList.add('active'); $('#modeManual').classList.remove('active'); $('#scanArea').style.display = 'block'; $('#manualArea').style.display = 'none'; setTimeout(startScanner, 300); }
 }
 
  $('#modeScan').onclick = function() { setScanMode('scan'); };
  $('#modeManual').onclick = function() { setScanMode('manual'); };
 
  $('#submitManualBtn').onclick = function() {
-  var s = $('#manualSerial').value.trim();
-  if (!s) { toast('Type a serial number first', 'error'); return; }
-  var localMatch = cachedDevices.find(function(d) { return d.serial === s; });
-  if (localMatch) {
-    if (localMatch.installed) { toast('Already installed', 'info', s); $('#manualSerial').value = ''; return; }
-    markInstalled(s);
-  } else { saveNew(s); }
-  $('#manualSerial').value = '';
+  var s = $('#manualSerial').value.trim(); if (!s) { toast('Type a serial number first','error'); return; }
+  processSerial(s); $('#manualSerial').value = '';
 };
-
  $('#manualSerial').addEventListener('keydown', function(e) { if (e.key === 'Enter') $('#submitManualBtn').click(); });
 
 function addQuickLog(serial, action) {
   quickLogItems.unshift({ serial: serial, action: action, ts: Date.now() });
   $('#quickLog').innerHTML = quickLogItems.map(function(i) {
-    var isInstall = i.action === 'Installed';
-    var badgeCls = isInstall ? 'green' : 'amber';
-    return '<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);align-items:center;gap:8px"><div style="min-width:0"><strong>' + i.serial + '</strong><br><small style="color:var(--airtel-gray)">' + i.action + ' by ' + currentUser.fullName + '</small></div><span class="badge ' + badgeCls + '" style="flex-shrink:0">' + i.action + '</span><small style="color:var(--airtel-gray);flex-shrink:0">' + new Date(i.ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '</small></div>';
+    var isInstall = i.action.indexOf('Installed') === 0; var badgeCls = isInstall ? 'green' : 'amber';
+    return '<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);align-items:center;gap:8px"><div style="min-width:0"><strong>'+i.serial+'</strong><br><small style="color:var(--airtel-gray)">'+i.action+' by '+currentUser.fullName+'</small></div><span class="badge '+badgeCls+'" style="flex-shrink:0">'+i.action+'</span><small style="color:var(--airtel-gray);flex-shrink:0">'+new Date(i.ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+'</small></div>';
   }).join('') || '<div class="empty"><div class="ico">📋</div>No actions this session</div>';
 }
 
 /* ================================================================
    ALL DEVICES
 ================================================================ */
-function loadAllDevices() {
-  showLoading();
-  DB.getDevicesForScope().then(function(devs) {
-    cachedDevices = devs;
-    populateInstallerFilter();
-    renderAll();
-    hideLoading();
-  }).catch(function(err) { hideLoading(); toast('Failed to load devices: ' + err.message, 'error'); });
-}
+function loadAllDevices() { showLoading(); populateYearFilter(); DB.getDevicesForScope().then(function(devs) { cachedDevices = devs; populateInstallerFilter(); renderAll(); hideLoading(); }).catch(function(err) { hideLoading(); toast('Failed to load devices: '+err.message,'error'); }); }
 
 function populateInstallerFilter() {
-  var select = $('#filterInstaller');
-  var currentVal = select.value;
+  var select = $('#filterInstaller'); var currentVal = select.value;
   DB.getUsersForFilter().then(function(users) {
     select.innerHTML = '<option value="all">All Installers</option>';
-    users.forEach(function(u) {
-      var opt = document.createElement('option');
-      opt.value = u.id; opt.textContent = u.fullName;
-      select.appendChild(opt);
-    });
-    if (currentUser.role === 'installer') select.value = currentUser.id;
-    else if (currentVal && users.some(function(u) { return u.id === currentVal; })) select.value = currentVal;
+    users.forEach(function(u) { var o = document.createElement('option'); o.value = u.id; o.textContent = u.fullName; select.appendChild(o); });
+    if (currentVal && users.some(function(u) { return u.id === currentVal; })) select.value = currentVal;
   });
 }
 
+// Populate Year dropdown dynamically
+function populateYearFilter() {
+  var sel = $('#filterYear');
+  var currentVal = sel.value;
+  sel.innerHTML = '<option value="all">All Years</option>';
+  var currentYear = new Date().getFullYear();
+  // Add last 5 years + current
+  for (var y = currentYear; y >= currentYear - 5; y--) {
+    var o = document.createElement('option'); o.value = y; o.textContent = y; sel.appendChild(o);
+  }
+  if (currentVal) sel.value = currentVal;
+  else sel.value = 'all';
+}
+
 function getFilteredDevices() {
-  var devs = cachedDevices.slice();
-  var q = ($('#searchAll').value || '').toLowerCase();
-  var filterInst = $('#filterInstaller').value;
-  var filterStatus = $('#filterStatus').value;
-  if (q) {
-    devs = devs.filter(function(d) {
-      return d.serial.toLowerCase().indexOf(q) !== -1 || (d.collectedByName || '').toLowerCase().indexOf(q) !== -1 || (d.cluster || '').toLowerCase().indexOf(q) !== -1;
+  var devs = cachedDevices.slice(); 
+  var q = ($('#searchAll').value||'').toLowerCase(); 
+  var fi = $('#filterInstaller').value; 
+  var fs = $('#filterStatus').value;
+  
+  // NEW: Date filters
+  var dateFrom = $('#filterDateFrom').value;
+  var dateTo = $('#filterDateTo').value;
+  var filterMonth = $('#filterMonth').value;
+  var filterYear = $('#filterYear').value;
+
+  // Text search
+  if (q) devs = devs.filter(function(d) { return d.serial.toLowerCase().indexOf(q)!==-1 || (d.collectedByName||'').toLowerCase().indexOf(q)!==-1 || (d.installedByName||'').toLowerCase().indexOf(q)!==-1 || (d.cluster||'').toLowerCase().indexOf(q)!==-1; });
+  // Installer filter
+  if (fi !== 'all') devs = devs.filter(function(d) { return d.collectedBy === fi; });
+  // Status filter
+  if (fs !== 'all') devs = devs.filter(function(d) { return fs === 'installed' ? d.installed : !d.installed; });
+  
+  // NEW: Date range filter (From)
+  if (dateFrom) {
+    var fromTs = new Date(dateFrom).setHours(0,0,0,0);
+    devs = devs.filter(function(d) { return d.collectedAt >= fromTs; });
+  }
+  // NEW: Date range filter (To)
+  if (dateTo) {
+    var toTs = new Date(dateTo).setHours(23,59,59,999);
+    devs = devs.filter(function(d) { return d.collectedAt <= toTs; });
+  }
+  // NEW: Month filter
+  if (filterMonth !== 'all') {
+    devs = devs.filter(function(d) { 
+      return new Date(d.collectedAt).getMonth() === parseInt(filterMonth); 
     });
   }
-  if (filterInst !== 'all') devs = devs.filter(function(d) { return d.collectedBy === filterInst; });
-  if (filterStatus !== 'all') devs = devs.filter(function(d) { return filterStatus === 'installed' ? d.installed : !d.installed; });
-  devs.sort(function(a, b) { return b.createdAt - a.createdAt; });
+  // NEW: Year filter
+  if (filterYear !== 'all') {
+    devs = devs.filter(function(d) { 
+      return new Date(d.collectedAt).getFullYear() === parseInt(filterYear); 
+    });
+  }
+
+  devs.sort(function(a,b) { return b.createdAt - a.createdAt; }); 
   return devs;
 }
 
 function renderAll() {
-  var filtered = getFilteredDevices();
-  var total = filtered.length;
-  var totalPages = Math.max(1, Math.ceil(total / pageSize));
+  var filtered = getFilteredDevices(); var total = filtered.length; var totalPages = Math.max(1, Math.ceil(total/pageSize));
   if (currentPage > totalPages) currentPage = totalPages;
-  var start = (currentPage - 1) * pageSize;
-  var pageItems = filtered.slice(start, start + pageSize);
+  var start = (currentPage-1)*pageSize; var pageItems = filtered.slice(start, start+pageSize);
 
   $('#allTableBody').innerHTML = pageItems.length ? pageItems.map(function(d) {
     var rowCls = d.installed ? 'row-installed' : 'row-collected';
-    var canMod = (currentUser.role === 'supervisor') ? (d.cluster === currentUser.cluster) : (d.collectedBy === currentUser.id);
+    var canEdit = (currentUser.role === 'supervisor') || (d.collectedBy === currentUser.id);
+    var canInstall = !d.installed && (currentUser.role === 'supervisor' || d.cluster === currentUser.cluster);
+    var canDelete = (currentUser.role === 'supervisor') || (d.collectedBy === currentUser.id);
+    var collectorInfo = d.collectedByName || '—';
+    if (d.installed && d.installedByName) collectorInfo += ' → <span style="color:var(--green-dark);font-weight:600">'+d.installedByName+'</span>';
+    else if (d.installRequestedAt) collectorInfo += ' <span style="color:var(--amber);font-size:11px">(install requested by '+d.installRequestedByName+')</span>';
+
     var actionsHtml = '';
-    if (deletingId === d.id) {
-      actionsHtml = '<div class="actions-cell"><div class="delete-confirm"><span>Delete?</span><button class="btn-icon confirm-yes" data-delconfirm="' + d.id + '">Yes</button><button class="btn-icon confirm-no" data-delcancel>No</button></div></div>';
-    } else if (canMod) {
-      actionsHtml = '<div class="actions-cell"><button class="btn-icon edit" data-edit="' + d.id + '" title="Edit"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>';
-      if (!d.installed) actionsHtml += '<button class="btn-icon install-quick" data-quickinstall="' + d.id + '" title="Mark Installed" style="color:var(--green)"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></button>';
-      actionsHtml += '<button class="btn-icon delete" data-delete="' + d.id + '" title="Delete"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></div>';
-    } else {
-      actionsHtml = '<div class="actions-cell" style="color:var(--airtel-gray);font-size:11px">—</div>';
+    if (deletingId === d.id) { actionsHtml = '<div class="actions-cell"><div class="delete-confirm"><span>Delete?</span><button class="btn-icon confirm-yes" data-delconfirm="'+d.id+'">Yes</button><button class="btn-icon confirm-no" data-delcancel>No</button></div></div>'; }
+    else {
+      actionsHtml = '<div class="actions-cell">';
+      if (canEdit) actionsHtml += '<button class="btn-icon edit" data-edit="'+d.id+'" title="Edit"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>';
+      if (canInstall) {
+        var isCross = d.collectedBy !== currentUser.id;
+        if (isCross) {
+          if (d.installRequestedAt) actionsHtml += '<span style="font-size:11px;color:var(--amber);font-weight:600;white-space:nowrap">⏳ Requested</span>';
+          else actionsHtml += '<button class="btn-icon" data-requestinstall="'+d.id+'" title="Request Installation from '+(d.collectedByName||'collector')+'" style="color:var(--amber)"><svg viewBox="0 0 24 24"><path d="M22 2L11 13"></path><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>';
+        } else actionsHtml += '<button class="btn-icon install-quick" data-quickinstall="'+d.id+'" title="Mark Installed" style="color:var(--green)"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></button>';
+      }
+      if (canDelete) actionsHtml += '<button class="btn-icon delete" data-delete="'+d.id+'" title="Delete"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>';
+      actionsHtml += '</div>';
+      if (!canEdit && !canInstall && !canDelete) actionsHtml = '<div class="actions-cell" style="color:var(--airtel-gray);font-size:11px">—</div>';
     }
-    return '<tr class="' + rowCls + '"><td><strong>' + d.serial + '</strong></td><td>' + (d.cluster || '—') + '</td><td>' + statusBadge(d.installed) + '</td><td>' + (d.collectedByName || '—') + '</td><td>' + fmt(d.collectedAt) + '</td><td style="text-align:center">' + actionsHtml + '</td></tr>';
+    return '<tr class="'+rowCls+'"><td><strong>'+d.serial+'</strong></td><td>'+(d.cluster||'—')+'</td><td>'+statusBadge(d.installed)+'</td><td style="font-size:12px">'+collectorInfo+'</td><td>'+fmt(d.collectedAt)+'</td><td style="text-align:center">'+actionsHtml+'</td></tr>';
   }).join('') : '<tr><td colspan="6" class="empty">No devices found</td></tr>';
 
-  var endIdx = Math.min(start + pageSize, total);
-  $('#pageInfo').innerHTML = 'Showing <strong>' + (total ? start + 1 : 0) + '–' + endIdx + '</strong> of <strong>' + total + '</strong> devices';
-
-  var pagesHtml = '<button class="page-btn" data-pg="prev"' + (currentPage <= 1 ? ' disabled' : '') + '>&#8249;</button>';
-  var pages = getPaginationRange(currentPage, totalPages);
-  pages.forEach(function(p) {
-    if (p === '...') pagesHtml += '<span class="page-ellipsis">…</span>';
-    else pagesHtml += '<button class="page-btn' + (p === currentPage ? ' active' : '') + '" data-pg="' + p + '">' + p + '</button>';
-  });
-  pagesHtml += '<button class="page-btn" data-pg="next"' + (currentPage >= totalPages ? ' disabled' : '') + '>&#8250;</button>';
+  var endIdx = Math.min(start+pageSize, total);
+  $('#pageInfo').innerHTML = 'Showing <strong>'+(total?start+1:0)+'–'+endIdx+'</strong> of <strong>'+total+'</strong> devices';
+  var pagesHtml = '<button class="page-btn" data-pg="prev"'+(currentPage<=1?' disabled':'')+'>‹</button>';
+  getPaginationRange(currentPage, totalPages).forEach(function(p) { if (p==='...') pagesHtml += '<span class="page-ellipsis">…</span>'; else pagesHtml += '<button class="page-btn'+(p===currentPage?' active':'')+'" data-pg="'+p+'">'+p+'</button>'; });
+  pagesHtml += '<button class="page-btn" data-pg="next"'+(currentPage>=totalPages?' disabled':'')+'>›</button>';
   $('#pageControls').innerHTML = pagesHtml;
 }
 
-function getPaginationRange(current, total) {
-  if (total <= 7) { var arr = []; for (var i = 1; i <= total; i++) arr.push(i); return arr; }
-  if (current <= 3) return [1, 2, 3, 4, '...', total];
-  if (current >= total - 2) return [1, '...', total - 3, total - 2, total - 1, total];
-  return [1, '...', current - 1, current, current + 1, '...', total];
-}
+function getPaginationRange(current, total) { if (total<=7) { var a=[]; for(var i=1;i<=total;i++)a.push(i); return a; } if (current<=3) return [1,2,3,4,'...',total]; if (current>=total-2) return [1,'...',total-3,total-2,total-1,total]; return [1,'...',current-1,current,current+1,'...',total]; }
 
  $('#allTableBody').addEventListener('click', function(e) {
-  var delBtn = e.target.closest('[data-delete]');
-  if (delBtn) { deletingId = delBtn.dataset.delete; renderAll(); return; }
+  var delBtn = e.target.closest('[data-delete]'); if (delBtn) { deletingId = delBtn.dataset.delete; renderAll(); return; }
   var confirmBtn = e.target.closest('[data-delconfirm]');
-  if (confirmBtn) {
-    showLoading();
-    DB.deleteDevice(confirmBtn.dataset.delconfirm).then(function() {
-      deletingId = null;
-      cachedDevices = cachedDevices.filter(function(d) { return d.id !== confirmBtn.dataset.delconfirm; });
-      renderAll(); hideLoading(); toast('Device deleted', 'success');
-    }).catch(function(err) { hideLoading(); toast('Delete failed: ' + err.message, 'error'); });
-    return;
-  }
+  if (confirmBtn) { showLoading(); DB.deleteDevice(confirmBtn.dataset.delconfirm).then(function() { deletingId=null; cachedDevices=cachedDevices.filter(function(d){return d.id!==confirmBtn.dataset.delconfirm;}); renderAll(); hideLoading(); toast('Device deleted','success'); }).catch(function(err){hideLoading();toast('Delete failed: '+err.message,'error');}); return; }
   if (e.target.closest('[data-delcancel]')) { deletingId = null; renderAll(); return; }
-  var editBtn = e.target.closest('[data-edit]');
-  if (editBtn) { openEditModal(editBtn.dataset.edit); return; }
+  var editBtn = e.target.closest('[data-edit]'); if (editBtn) { openEditModal(editBtn.dataset.edit); return; }
   var installBtn = e.target.closest('[data-quickinstall]');
-  if (installBtn) {
-    showLoading();
-    DB.updateDevice(installBtn.dataset.quickinstall, { installed: true, installedAt: Date.now() }).then(function() {
-      var dev = cachedDevices.find(function(d) { return d.id === installBtn.dataset.quickinstall; });
-      if (dev) { dev.installed = true; dev.installedAt = Date.now(); }
-      renderAll(); hideLoading(); toast('Marked as installed', 'success');
-    }).catch(function(err) { hideLoading(); toast('Update failed: ' + err.message, 'error'); });
-    return;
-  }
+  if (installBtn) { var dev = cachedDevices.find(function(d){return d.id===installBtn.dataset.quickinstall;}); if (!dev) return; if (dev.installed) { toast('Already installed','info'); return; } showOwnCollectedModal(dev); return; }
+  var requestBtn = e.target.closest('[data-requestinstall]');
+  if (requestBtn) { var dev2 = cachedDevices.find(function(d){return d.id===requestBtn.dataset.requestinstall;}); if (dev2) { if (dev2.installRequestedAt) toast('Already requested','info'); else showCrossInstallModal(dev2); } return; }
 });
 
- $('#pageControls').addEventListener('click', function(e) {
-  var btn = e.target.closest('[data-pg]');
-  if (!btn || btn.disabled) return;
-  var val = btn.dataset.pg;
-  var filtered = getFilteredDevices();
-  var totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  if (val === 'prev') currentPage = Math.max(1, currentPage - 1);
-  else if (val === 'next') currentPage = Math.min(totalPages, currentPage + 1);
-  else currentPage = parseInt(val, 10);
+ $('#pageControls').addEventListener('click', function(e) { var btn = e.target.closest('[data-pg]'); if (!btn||btn.disabled) return; var val = btn.dataset.pg; var filtered = getFilteredDevices(); var tp = Math.max(1,Math.ceil(filtered.length/pageSize)); if (val==='prev') currentPage=Math.max(1,currentPage-1); else if (val==='next') currentPage=Math.min(tp,currentPage+1); else currentPage=parseInt(val,10); renderAll(); });
+ $('#searchAll').addEventListener('input', function() { currentPage=1; renderAll(); });
+ $('#filterInstaller').addEventListener('change', function() { currentPage=1; renderAll(); });
+ $('#filterStatus').addEventListener('change', function() { currentPage=1; renderAll(); });
+ $('#filterDateFrom').addEventListener('change', function() { currentPage=1; renderAll(); });
+ $('#filterDateTo').addEventListener('change', function() { currentPage=1; renderAll(); });
+ $('#filterMonth').addEventListener('change', function() { currentPage=1; renderAll(); });
+ $('#filterYear').addEventListener('change', function() { currentPage=1; renderAll(); });
+
+// Clear all filters button
+ $('#clearFiltersBtn').onclick = function() {
+  $('#searchAll').value = '';
+  $('#filterInstaller').value = 'all';
+  $('#filterStatus').value = 'all';
+  $('#filterDateFrom').value = '';
+  $('#filterDateTo').value = '';
+  $('#filterMonth').value = 'all';
+  $('#filterYear').value = 'all';
+  currentPage = 1;
   renderAll();
-});
-
- $('#searchAll').addEventListener('input', function() { currentPage = 1; renderAll(); });
- $('#filterInstaller').addEventListener('change', function() { currentPage = 1; renderAll(); });
- $('#filterStatus').addEventListener('change', function() { currentPage = 1; renderAll(); });
- $('#pageSizeSelect').addEventListener('change', function() { pageSize = parseInt(this.value, 10); currentPage = 1; renderAll(); });
+  toast('Filters cleared', 'info');
+};
+ $('#pageSizeSelect').addEventListener('change', function() { pageSize=parseInt(this.value,10); currentPage=1; renderAll(); });
  $('#refreshAllBtn').addEventListener('click', function() { loadAllDevices(); });
 
 /* ================================================================
    EDIT MODAL
 ================================================================ */
 function openEditModal(deviceId) {
-  var dev = cachedDevices.find(function(d) { return d.id === deviceId; });
-  if (!dev) return;
-  $('#editDeviceId').value = dev.id;
-  $('#editSerial').value = dev.serial;
-  $('#editCluster').value = dev.cluster || '';
+  var dev = cachedDevices.find(function(d){return d.id===deviceId;}); if (!dev) return;
+  $('#editDeviceId').value = dev.id; $('#editSerial').value = dev.serial; $('#editCluster').value = dev.cluster||'';
   $('#editStatus').value = dev.installed ? 'installed' : 'collected';
-  updateEditHint();
+  var hint = 'Collected by: '+(dev.collectedByName||'—'); if (dev.installedByName) hint += ' | Installed by: '+dev.installedByName;
+  $('#editInstalledHint').textContent = hint; $('#editInstalledHint').style.display = 'block';
   $('#editModal').classList.add('open');
 }
 
-function updateEditHint() {
-  var hint = $('#editInstalledHint');
-  if ($('#editStatus').value === 'installed') { hint.style.display = 'block'; hint.textContent = 'Will set installation time to now.'; } else { hint.style.display = 'none'; }
-}
-
- $('#editStatus').addEventListener('change', updateEditHint);
  $('#editModalClose').onclick = function() { $('#editModal').classList.remove('open'); };
  $('#editCancelBtn').onclick = function() { $('#editModal').classList.remove('open'); };
 
  $('#editSaveBtn').onclick = function() {
-  var id = $('#editDeviceId').value;
-  var serial = $('#editSerial').value.trim();
-  var cluster = $('#editCluster').value.trim();
-  var installed = $('#editStatus').value === 'installed';
-  if (!serial) { toast('IMEI is required', 'error'); return; }
-  showLoading();
-  var updates = { serial: serial, cluster: cluster, installed: installed };
-  if (installed) updates.installedAt = Date.now(); else updates.installedAt = null;
-  DB.updateDevice(id, updates).then(function() {
-    var dev = cachedDevices.find(function(d) { return d.id === id; });
-    if (dev) { dev.serial = serial; dev.cluster = cluster; dev.installed = installed; dev.installedAt = installed ? Date.now() : null; }
-    $('#editModal').classList.remove('open'); renderAll(); hideLoading(); toast('Device updated', 'success');
-  }).catch(function(err) { hideLoading(); toast('Update failed: ' + err.message, 'error'); });
+  var id=$('#editDeviceId').value, serial=$('#editSerial').value.trim(), cluster=$('#editCluster').value.trim(), installed=$('#editStatus').value==='installed';
+  if (!serial) { toast('IMEI is required','error'); return; } showLoading();
+  var updates = { serial:serial, cluster:cluster, installed:installed };
+  if (installed) { updates.installedAt=Date.now(); var dev=cachedDevices.find(function(d){return d.id===id;}); if (dev&&!dev.installedBy) { updates.installedBy=currentUser.id; updates.installedByName=currentUser.fullName; } } else { updates.installedAt=null; }
+  DB.updateDevice(id,updates).then(function() {
+    var dev=cachedDevices.find(function(d){return d.id===id;}); if (dev) { dev.serial=serial; dev.cluster=cluster; dev.installed=installed; dev.installedAt=installed?Date.now():null; if (updates.installedBy) {dev.installedBy=updates.installedBy;dev.installedByName=updates.installedByName;} if (!installed){dev.installedBy=null;dev.installedByName=null;} }
+    $('#editModal').classList.remove('open'); renderAll(); hideLoading(); toast('Device updated','success');
+  }).catch(function(err) { hideLoading(); toast('Update failed: '+err.message,'error'); });
 };
-
- $('#editModal').addEventListener('click', function(e) { if (e.target === $('#editModal')) $('#editModal').classList.remove('open'); });
+ $('#editModal').addEventListener('click', function(e) { if (e.target===$('#editModal')) $('#editModal').classList.remove('open'); });
 
 /* ================================================================
    EXPORT
 ================================================================ */
  $('#exportAllExcel').onclick = function() {
-  var devs = getFilteredDevices();
-  if (!devs.length) { toast('No data to export', 'info'); return; }
-  var rows = devs.map(function(d) { return { IMEI: d.serial, Cluster: d.cluster, Status: d.installed ? 'Installed' : 'Collected', 'Collected By': d.collectedByName, 'Collected At': fmtFull(d.collectedAt), 'Installed At': fmtFull(d.installedAt) }; });
-  var ws = XLSX.utils.json_to_sheet(rows);
-  ws['!cols'] = [{ wch: 20 }, { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 22 }, { wch: 22 }];
-  var wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Devices');
-  XLSX.writeFile(wb, 'ODU_Devices_' + new Date().toISOString().slice(0, 10) + '.xlsx');
-  toast('Excel exported', 'success', devs.length + ' records');
+  var devs = getFilteredDevices(); if (!devs.length) { toast('No data to export','info'); return; }
+  var rows = devs.map(function(d) { return { IMEI:d.serial, Cluster:d.cluster, Status:d.installed?'Installed':'Collected', 'Collected By':d.collectedByName||'—', 'Collected At':fmtFull(d.collectedAt), 'Installed By':d.installedByName||'—', 'Installed At':fmtFull(d.installedAt) }; });
+  var ws = XLSX.utils.json_to_sheet(rows); ws['!cols']=[{wch:20},{wch:18},{wch:12},{wch:18},{wch:22},{wch:18},{wch:22}];
+  var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Devices'); XLSX.writeFile(wb,'ODU_Devices_'+new Date().toISOString().slice(0,10)+'.xlsx'); toast('Excel exported','success',devs.length+' records');
 };
 
  $('#exportAllPdf').onclick = function() {
-  var devs = getFilteredDevices();
-  if (!devs.length) { toast('No data to export', 'info'); return; }
-  var jsPDF = window.jspdf.jsPDF;
-  var doc = new jsPDF('landscape');
-  doc.setFontSize(16); doc.setTextColor(139, 0, 0); doc.text('Airtel Zambia — ODU Device Report', 14, 15);
-  doc.setFontSize(9); doc.setTextColor(120, 120, 120); doc.text('Generated: ' + new Date().toLocaleString() + '  |  Records: ' + devs.length, 14, 22);
-  var tableData = devs.map(function(d) { return [d.serial, d.cluster || '—', d.installed ? 'Installed' : 'Collected', d.collectedByName || '—', fmt(d.collectedAt), d.installedAt ? fmt(d.installedAt) : '—']; });
-  doc.autoTable({
-    head: [['IMEI', 'Cluster', 'Status', 'Collected By', 'Collected At', 'Installed At']],
-    body: tableData, startY: 28,
-    styles: { fontSize: 8, cellPadding: 3 },
-    headStyles: { fillColor: [228, 0, 0], textColor: 255, fontStyle: 'bold' },
-    alternateRowStyles: { fillColor: [254, 242, 242] }
-  });
-  doc.save('ODU_Devices_' + new Date().toISOString().slice(0, 10) + '.pdf');
-  toast('PDF exported', 'success', devs.length + ' records');
+  var devs = getFilteredDevices(); if (!devs.length) { toast('No data to export','info'); return; }
+  var jsPDF = window.jspdf.jsPDF; var doc = new jsPDF('landscape');
+  doc.setFontSize(16); doc.setTextColor(139,0,0); doc.text('Airtel Zambia — ODU Device Report',14,15);
+  doc.setFontSize(9); doc.setTextColor(120,120,120); doc.text('Generated: '+new Date().toLocaleString()+' | Records: '+devs.length,14,22);
+  var td = devs.map(function(d) { return [d.serial,d.cluster||'—',d.installed?'Installed':'Collected',d.collectedByName||'—',fmt(d.collectedAt),d.installedByName||'—',d.installedAt?fmt(d.installedAt):'—']; });
+  doc.autoTable({ head:[['IMEI','Cluster','Status','Collected By','Collected At','Installed By','Installed At']], body:td, startY:28, styles:{fontSize:7,cellPadding:3}, headStyles:{fillColor:[228,0,0],textColor:255,fontStyle:'bold'}, alternateRowStyles:{fillColor:[254,242,242]} });
+  doc.save('ODU_Devices_'+new Date().toISOString().slice(0,10)+'.pdf'); toast('PDF exported','success',devs.length+' records');
 };
 
 /* ================================================================
@@ -1624,147 +2167,70 @@ function updateEditHint() {
 ================================================================ */
 function renderProfile() {
   if (!currentUser) return;
-  $('#profileInfo').innerHTML = '<div style="display:grid;gap:14px">' +
-    '<div><span style="font-size:11px;color:var(--airtel-gray);font-weight:600;display:block;margin-bottom:2px">Full Name</span><strong>' + currentUser.fullName + '</strong></div>' +
-    '<div><span style="font-size:11px;color:var(--airtel-gray);font-weight:600;display:block;margin-bottom:2px">Contact</span><strong>' + currentUser.contact + '</strong></div>' +
-    '<div><span style="font-size:11px;color:var(--airtel-gray);font-weight:600;display:block;margin-bottom:2px">Role</span><strong style="text-transform:capitalize">' + currentUser.role + '</strong></div>' +
-    '<div><span style="font-size:11px;color:var(--airtel-gray);font-weight:600;display:block;margin-bottom:2px">Cluster</span><strong>' + currentUser.cluster + '</strong></div>' +
-    '<div><span style="font-size:11px;color:var(--airtel-gray);font-weight:600;display:block;margin-bottom:2px">Account Created</span><strong>' + fmtFull(currentUser.createdAt) + '</strong></div>' +
+
+  // Determine notification status
+  var notifStatus = '';
+  var notifBtnHtml = '';
+  if (!('Notification' in window)) {
+    notifStatus = '<span style="color:var(--airtel-gray)">Not supported in this browser</span>';
+  } else if (Notification.permission === 'granted') {
+    notifStatus = '<span style="color:var(--green);font-weight:600">✓ Enabled</span>';
+  } else if (Notification.permission === 'denied') {
+    notifStatus = '<span style="color:var(--red-500);font-weight:600">✗ Blocked</span>';
+    notifBtnHtml = '<div style="margin-top:8px;font-size:11px;color:var(--airtel-gray)">Enable in your browser settings to receive requests</div>';
+  } else {
+    notifStatus = '<span style="color:var(--amber);font-weight:600">Not enabled</span>';
+    notifBtnHtml = '<button class="btn btn-red btn-sm" id="enableNotifProfileBtn" style="margin-top:8px">Enable Notifications</button>';
+  }
+
+  $('#profileInfo').innerHTML = '<div class="profile-detail-grid">' +
+    '<div class="profile-detail-item"><span class="lbl">Full Name</span><span class="val">' + currentUser.fullName + '</span></div>' +
+    '<div class="profile-detail-item"><span class="lbl">Role</span><span class="val" style="text-transform:capitalize">' + currentUser.role + '</span></div>' +
+    '<div class="profile-detail-item"><span class="lbl">Contact</span><span class="val">' + currentUser.contact + '</span></div>' +
+    '<div class="profile-detail-item"><span class="lbl">Cluster</span><span class="val">' + currentUser.cluster + '</span></div>' +
+    '<div class="profile-detail-item"><span class="lbl">Push Notifications</span><span class="val">' + notifStatus + '</span>' + notifBtnHtml + '</div>' +
+    '<div class="profile-detail-item"><span class="lbl">Account Created</span><span class="val">' + fmtFull(currentUser.createdAt) + '</span></div>' +
     '</div>';
 
-  var total = cachedDevices.length;
-  var installed = cachedDevices.filter(function(d) { return d.installed; }).length;
-  var pending = total - installed;
-  var rate = total ? Math.round((installed / total) * 100) : 0;
+  // Attach enable button handler
+  var enableBtn = document.getElementById('enableNotifProfileBtn');
+  if (enableBtn) enableBtn.onclick = requestNotifPermission;
 
-  $('#profileStats').innerHTML =
-    '<div class="stats-grid four-col" style="margin-bottom:0">' +
-    '<div class="stat-card red-card"><div class="stat-icon red"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect><polyline points="17 2 12 7 7 2"></polyline></svg></div><div class="stat-info"><div class="num">' + total + '</div><div class="lbl">Total Collected</div></div></div>' +
-    '<div class="stat-card green-card"><div class="stat-icon green"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div><div class="stat-info"><div class="num">' + installed + '</div><div class="lbl">Installed</div></div></div>' +
-    '<div class="stat-card amber-card"><div class="stat-icon amber"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div><div class="stat-info"><div class="num">' + pending + '</div><div class="lbl">Pending</div></div></div>' +
-    '<div class="stat-card blue-card"><div class="stat-icon blue"><svg viewBox="0 0 24 24"><line x1="19" y1="5" x2="5" y2="19"></line><circle cx="6.5" cy="6.5" r="2.5"></circle><circle cx="17.5" cy="17.5" r="2.5"></circle></svg></div><div class="stat-info"><div class="num">' + rate + '%</div><div class="lbl">Install Rate</div></div></div>' +
+  // Stats
+  var total=cachedDevices.length, installed=cachedDevices.filter(function(d){return d.installed;}).length, pending=total-installed, rate=total?Math.round((installed/total)*100):0;
+  var myCollected=cachedDevices.filter(function(d){return d.collectedBy===currentUser.id;}).length;
+  var myInstalled=cachedDevices.filter(function(d){return d.installedBy===currentUser.id;}).length;
+  var crossInstalled=cachedDevices.filter(function(d){return d.installedBy===currentUser.id&&d.collectedBy!==currentUser.id;}).length;
+
+  $('#profileStats').innerHTML = '<div class="stats-grid four-col" style="margin-bottom:0">' +
+    '<div class="stat-card red-card"><div class="stat-icon red"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect><polyline points="17 2 12 7 7 2"></polyline></svg></div><div class="stat-info"><div class="num">'+myCollected+'</div><div class="lbl">My Collections</div></div></div>' +
+    '<div class="stat-card green-card"><div class="stat-icon green"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div><div class="stat-info"><div class="num">'+myInstalled+'</div><div class="lbl">My Installations</div></div></div>' +
+    '<div class="stat-card amber-card"><div class="stat-icon amber"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div><div class="stat-info"><div class="num">'+crossInstalled+'</div><div class="lbl">Cross-Installs</div></div></div>' +
+    '<div class="stat-card blue-card"><div class="stat-icon blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div><div class="stat-info"><div class="num">'+rate+'%</div><div class="lbl">Install Rate</div></div></div>' +
     '</div>';
-
-  $('#profileProjectId').textContent = FIREBASE_CONFIG.projectId;
-  $('#profileConnStatus').textContent = isOnline ? 'Online' : 'Offline';
 }
 
 /* ================================================================
-   SEED DEMO DATA
-================================================================ */
-function seedDemoData() {
-  showLoading();
-  if (!db) { hideLoading(); toast('Firestore not ready; please refresh', 'error'); showAuth(); return Promise.resolve(); }
-  return DB.hasAnyUsers().then(function(hasUsers) {
-    if (hasUsers) { hideLoading(); return null; }
-
-    var users = [
-      { fullName: 'Peter Tembo', contact: '0978983333', role: 'supervisor', cluster: 'Lusaka Central', password: hashPassword('1234') },
-      { fullName: 'John Banda', contact: '0978981234', role: 'installer', cluster: 'Lusaka Central', password: hashPassword('1234'), supervisorId: null },
-      { fullName: 'Mary Phiri', contact: '0978981111', role: 'installer', cluster: 'Lusaka Central', password: hashPassword('1234'), supervisorId: null },
-      { fullName: 'Jane Bwalya', contact: '0978989999', role: 'installer', cluster: 'Kitwe North', password: hashPassword('1234'), supervisorId: null }
-    ];
-
-    var userPromises = users.map(function(u) { return DB.createUser(u).then(function(id) { u.id = id; return u; }); });
-
-    return Promise.all(userPromises).then(function(createdUsers) {
-      var supervisor = createdUsers.find(function(u) { return u.role === 'supervisor'; });
-      var installers = createdUsers.filter(function(u) { return u.role === 'installer' && u.cluster === supervisor.cluster; });
-      
-      var updatePromises = installers.map(function(inst) {
-        return DB.updateUser(inst.id, { supervisorId: supervisor.id });
-      });
-
-      return Promise.all(updatePromises).then(function() {
-        var now = Date.now();
-        var batch = db.batch();
-        var devicesRef = db.collection('devices');
-
-        for (var i = 0; i < 47; i++) {
-          var inst = installers[i % installers.length];
-          var isInstalled = (i % 3 === 0);
-          var docRef = devicesRef.doc();
-          batch.set(docRef, {
-            serial: '860480' + (100000000 + i).toString().slice(0, 9),
-            cluster: inst.cluster,
-            collectedBy: inst.id,
-            collectedByName: inst.fullName,
-            collectedAt: now - i * 3600000,
-            installed: isInstalled,
-            installedAt: isInstalled ? (now - i * 3600000 + 1800000) : null,
-            createdAt: now - i * 3600000
-          });
-        }
-
-        return batch.commit().then(function() {
-          hideLoading();
-          toast('Demo data created', 'info', '4 users and 47 devices. Login with 3333 / 1234');
-        });
-      });
-    });
-  }).catch(function(err) {
-    hideLoading();
-    console.error('Seed error:', err);
-    toast('Demo data seed failed: ' + err.message, 'error');
-  });
-}
-
-/* ================================================================
-   APP INITIALIZATION
+   APP INIT
 ================================================================ */
 (function init() {
   updateConnUI();
-
-  if (typeof firebase === 'undefined') {
-    var errDiv = document.createElement('div');
-    errDiv.style.cssText = 'background:#fee2e2;color:#8B0000;padding:14px;border-radius:8px;font-size:13px;margin-bottom:16px;border-left:4px solid #E40000;line-height:1.6;text-align:center;';
-    errDiv.innerHTML = '<strong>Firebase SDK failed to load.</strong><br>Check your internet connection or ad blocker settings.';
-    document.body.innerHTML = '<div style="padding:20px;max-width:500px;margin:40px auto;background:#fff;border-radius:12px;">' + errDiv.outerHTML + '</div>';
-    return;
+  var session = sessionStorage.getItem('airtel_session');
+  if (session) {
+    try {
+      var s = JSON.parse(session);
+      if (s.id && s.ts && (Date.now()-s.ts < 86400000)) {
+        showLoading();
+        initFirebase(FIREBASE_CONFIG).then(function() { return DB.getUserById(s.id); }).then(function(user) {
+          hideLoading(); if (user) startApp(user); else { sessionStorage.removeItem('airtel_session'); showAuth(); }
+        }).catch(function(err) { hideLoading(); console.error('Session restore error:', err); showAuth(); });
+        return;
+      }
+    } catch(e) { sessionStorage.removeItem('airtel_session'); }
   }
-
+  showAuth();
   showLoading();
-
-  var safetyTimer = setTimeout(function() {
-    if ($('#loadingOverlay').classList.contains('active')) {
-      hideLoading();
-      console.warn('Loading overlay force-hidden after timeout');
-    }
-  }, 5000);
-
-  initFirebase(FIREBASE_CONFIG).then(function() {
-    clearTimeout(safetyTimer);
-    hideLoading();
-
-    if (!db) throw new Error('Firestore instance is null after initialization');
-
-    var session = null;
-    try { session = JSON.parse(sessionStorage.getItem('airtel_session')); } catch(e) {}
-    if (session && session.id) {
-      DB.getUserById(session.id)
-        .then(function(user) {
-          if (user) { startApp(user); } else {
-            sessionStorage.removeItem('airtel_session');
-            seedDemoData().then(function() { showAuth(); });
-          }
-        })
-        .catch(function(err) {
-          console.error('Session restore error:', err);
-          sessionStorage.removeItem('airtel_session');
-          seedDemoData().then(function() { showAuth(); });
-        });
-    } else {
-      seedDemoData().then(function() { showAuth(); });
-    }
-  }).catch(function(err) {
-    clearTimeout(safetyTimer);
-    hideLoading();
-    console.error('Firebase init error:', err);
-    var errDiv = document.createElement('div');
-    errDiv.style.cssText = 'background:#fee2e2;color:#8B0000;padding:14px;border-radius:8px;font-size:13px;margin-bottom:16px;border-left:4px solid #E40000;line-height:1.6;text-align:center;';
-    errDiv.innerHTML = '<strong>Firebase Initialization Error.</strong><br>' + err.message;
-    document.body.innerHTML = '<div style="padding:20px;max-width:500px;margin:40px auto;background:#fff;border-radius:12px;">' + errDiv.outerHTML + '</div>';
-  });
+  initFirebase(FIREBASE_CONFIG).then(function() { hideLoading(); }).catch(function(err) { hideLoading(); toast('Firebase init failed: '+err.message,'error'); });
 })();
 </script>
 <button id="installBtn" style="display:none;position:fixed;bottom:20px;right:20px;z-index:500;background:var(--red-500);color:#fff;padding:12px 16px;border-radius:25px;box-shadow:var(--shadow-lg);font-weight:600;font-size:14px;align-items:center;gap:8px;border:none;">
